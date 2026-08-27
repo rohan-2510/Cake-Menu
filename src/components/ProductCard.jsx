@@ -11,17 +11,17 @@ export default function ProductCard({ product, onQuickView, onAddToCart }) {
   const [isHovered, setIsHovered] = useState(false);
 
   const {
-    name,
-    basePrice,
-    description,
-    tags,
-    isCustomizable,
-    leadTimeHours,
-    rating,
-    reviews,
-    available,
-    category,
-  } = product;
+    name = 'Delicious Cake',
+    basePrice = 0,
+    description = '',
+    tags = [],
+    isCustomizable = false,
+    leadTimeHours = 24,
+    rating = 5.0,
+    reviews = 1,
+    available = true,
+    category = 'cakes',
+  } = product || {};
 
   const getCategoryEmoji = () => {
     switch (category) {
@@ -48,13 +48,13 @@ export default function ProductCard({ product, onQuickView, onAddToCart }) {
 
         {/* Badges */}
         <div className="product-card__badges">
-          {tags.includes('veg') && (
+          {(tags || []).includes('veg') && (
             <span className="badge badge--veg">🟢 Eggless</span>
           )}
-          {tags.includes('bestseller') && (
+          {(tags || []).includes('bestseller') && (
             <span className="badge badge--bestseller">⭐ Bestseller</span>
           )}
-          {tags.includes('seasonal') && (
+          {(tags || []).includes('seasonal') && (
             <span className="badge badge--seasonal">🎉 Seasonal</span>
           )}
           {isCustomizable && (
@@ -96,7 +96,9 @@ export default function ProductCard({ product, onQuickView, onAddToCart }) {
         </div>
 
         <h3 className="product-card__name font-display">{name}</h3>
-        <p className="product-card__desc">{description.slice(0, 90)}...</p>
+        <p className="product-card__desc">
+          {description ? `${description.slice(0, 90)}${description.length > 90 ? '...' : ''}` : ''}
+        </p>
 
         <div className="product-card__footer">
           <div className="product-card__price">

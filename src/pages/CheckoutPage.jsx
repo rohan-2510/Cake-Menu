@@ -18,12 +18,17 @@ import './CheckoutPage.css';
 
 export default function CheckoutPage() {
   const navigate = useNavigate();
-  const { state, dispatch, Actions, cartTotal, getProduct, isDateAvailable } = useStore();
+  const { state, dispatch, Actions, cartTotal, getProduct, isDateAvailable, currentUser } = useStore();
   const { cart } = state;
 
   const [deliveryDate, setDeliveryDate] = useState('');
   const [timeSlot, setTimeSlot] = useState('');
-  const [customer, setCustomer] = useState({ name: '', phone: '', address: '', notes: '' });
+  const [customer, setCustomer] = useState({
+    name: (currentUser && currentUser.role === 'customer') ? currentUser.name : '',
+    phone: (currentUser && currentUser.role === 'customer') ? currentUser.phone : '',
+    address: '',
+    notes: '',
+  });
   const [orderMethod, setOrderMethod] = useState('whatsapp');
   const [orderPlaced, setOrderPlaced] = useState(null);
   const [calendarMonth, setCalendarMonth] = useState(new Date());

@@ -11,16 +11,23 @@ import './ProductModal.css';
 export default function ProductModal({ product, onClose }) {
   const { dispatch, Actions } = useStore();
 
-  const sizes = SIZES[product.category] || SIZES.cakes;
+  const tags = Array.isArray(product?.tags) ? product.tags : [];
+  const flavors = Array.isArray(product?.flavors)
+    ? product.flavors
+    : typeof product?.flavors === 'string' && product.flavors.trim()
+    ? product.flavors.split(',').map((f) => f.trim())
+    : ['Standard'];
+
+  const sizes = SIZES[product?.category] || SIZES.cakes;
   const [selectedSize, setSelectedSize] = useState(sizes[0]);
-  const [selectedFlavor, setSelectedFlavor] = useState(product.flavors[0]);
+  const [selectedFlavor, setSelectedFlavor] = useState(flavors[0] || 'Standard');
   const [customMessage, setCustomMessage] = useState('');
   const [quantity, setQuantity] = useState(1);
   const [added, setAdded] = useState(false);
 
   const currentPrice = useMemo(() => {
-    return Math.round(product.basePrice * selectedSize.multiplier);
-  }, [product.basePrice, selectedSize]);
+    return Math.round((product?.basePrice || 0) * (selectedSize?.multiplier || 1));
+  }, [product?.basePrice, selectedSize]);
 
   const totalPrice = currentPrice * quantity;
 
@@ -83,10 +90,10 @@ export default function ProductModal({ product, onClose }) {
           {/* Header */}
           <div className="product-modal__header">
             <div className="product-modal__tags">
-              {product.tags.includes('veg') && (
+              {tags.includes('veg') && (
                 <span className="badge badge--veg">🟢 100% Eggless</span>
               )}
-              {product.tags.includes('bestseller') && (
+              {tags.includes('bestseller') && (
                 <span className="badge badge--bestseller">⭐ Bestseller</span>
               )}
               {product.isCustomizable && (
@@ -99,26 +106,19 @@ export default function ProductModal({ product, onClose }) {
             <div className="product-modal__info-row">
               <div className="product-modal__rating">
                 <Star size={14} fill="var(--color-gold)" stroke="var(--color-gold)" />
-                <span>{product.rating}</span>
-                <span className="product-modal__review-count">({product.reviews} reviews)</span>
+                <span>{product.rating || 5.0}</span>
+                <span className="product-modal__review-count">({product.reviews || 1} reviews)</span>
               </div>
               <div className="product-modal__lead-badge">
                 <Clock size={14} />
-                <span>Requires {product.leadTimeHours}h notice</span>
+                <span>Requires {product.leadTimeHours || 24}h notice</span>
               </div>
-            </div>
-
-            <div className="product-modal__earliest">
-              <AlertCircle size={14} />
-              <span>Earliest delivery: <strong>{earliestStr}</strong></span>
             </div>
           </div>
 
           {/* Size Selector */}
           <div className="product-modal__section">
-            <h3 className="product-modal__section-title">
-              Select {product.category === 'cakes' ? 'Weight' : 'Pack Size'}
-            </h3>
+            <h3 className="product-modal__section-title">Select Size</h3>
             <div className="product-modal__sizes">
               {sizes.map((size) => (
                 <button
@@ -130,7 +130,7 @@ export default function ProductModal({ product, onClose }) {
                   <span className="product-modal__size-label">{size.label}</span>
                   <span className="product-modal__size-serves">Serves {size.serves}</span>
                   <span className="product-modal__size-price">
-                    {formatPrice(Math.round(product.basePrice * size.multiplier))}
+                    {formatPrice(Math.round((product.basePrice || 0) * size.multiplier))}
                   </span>
                 </button>
               ))}
@@ -138,11 +138,11 @@ export default function ProductModal({ product, onClose }) {
           </div>
 
           {/* Flavor Selector */}
-          {product.flavors.length > 1 && (
+          {flavors.length > 1 && (
             <div className="product-modal__section">
               <h3 className="product-modal__section-title">Choose Flavor</h3>
               <div className="product-modal__flavors">
-                {product.flavors.map((flavor) => (
+                {flavors.map((flavor) => (
                   <button
                     key={flavor}
                     className={`product-modal__flavor-btn ${selectedFlavor === flavor ? 'active' : ''}`}

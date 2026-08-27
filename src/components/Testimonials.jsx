@@ -3,21 +3,30 @@
 // ============================================
 import { useState, useEffect } from 'react';
 import { Star, ChevronLeft, ChevronRight, Quote } from 'lucide-react';
-import { TESTIMONIALS } from '../data/products';
+import { useStore } from '../store/StoreContext';
+import { TESTIMONIALS as DEFAULT_TESTIMONIALS } from '../data/products';
 import './Testimonials.css';
 
 export default function Testimonials() {
+  const { state } = useStore();
+  const rawList = state.testimonials && state.testimonials.length > 0 ? state.testimonials : DEFAULT_TESTIMONIALS;
+  const list = rawList.filter((t) => t.visible !== false);
   const [current, setCurrent] = useState(0);
 
   useEffect(() => {
+    if (list.length === 0) return;
     const timer = setInterval(() => {
-      setCurrent((prev) => (prev + 1) % TESTIMONIALS.length);
+      setCurrent((prev) => (prev + 1) % list.length);
     }, 5000);
     return () => clearInterval(timer);
-  }, []);
+  }, [list.length]);
 
-  const prev = () => setCurrent((c) => (c - 1 + TESTIMONIALS.length) % TESTIMONIALS.length);
-  const next = () => setCurrent((c) => (c + 1) % TESTIMONIALS.length);
+  if (list.length === 0) return null;
+  const activeIndex = current % list.length;
+  const activeReview = list[activeIndex];
+
+  const prev = () => setCurrent((c) => (c - 1 + list.length) % list.length);
+  const next = () => setCurrent((c) => (c + 1) % list.length);
 
   return (
     <section className="testimonials section" id="testimonials">
@@ -36,18 +45,20 @@ export default function Testimonials() {
           <div className="testimonials__card">
             <Quote className="testimonials__quote-icon" size={32} />
             <div className="testimonials__stars">
-              {Array.from({ length: TESTIMONIALS[current].rating }).map((_, i) => (
+              {Array.from({ length: Number(activeReview.rating) || 5 }).map((_, i) => (
                 <Star key={i} size={16} fill="var(--color-gold)" stroke="var(--color-gold)" />
               ))}
             </div>
-            <p className="testimonials__text">{TESTIMONIALS[current].text}</p>
+            <p className="testimonials__text">{activeReview.text}</p>
             <div className="testimonials__author">
               <div className="testimonials__avatar">
-                {TESTIMONIALS[current].name.charAt(0)}
+                {(activeReview.name || 'C').charAt(0)}
               </div>
               <div>
-                <span className="testimonials__name">{TESTIMONIALS[current].name}</span>
-                <span className="testimonials__item">ordered {TESTIMONIALS[current].item}</span>
+                <span className="testimonials__name">{activeReview.name}</span>
+                {activeReview.item && (
+                  <span className="testimonials__item">ordered {activeReview.item}</span>
+                )}
               </div>
             </div>
           </div>
@@ -59,10 +70,10 @@ export default function Testimonials() {
 
         {/* Dots */}
         <div className="testimonials__dots">
-          {TESTIMONIALS.map((_, i) => (
+          {list.map((_, i) => (
             <button
               key={i}
-              className={`testimonials__dot ${i === current ? 'active' : ''}`}
+              className={`testimonials__dot ${i === activeIndex ? 'active' : ''}`}
               onClick={() => setCurrent(i)}
               aria-label={`Go to testimonial ${i + 1}`}
             />

@@ -18,7 +18,7 @@ export default function HomePage() {
 
   const products = getProducts(activeCategory);
   const availableProducts = products.filter((p) => p.available !== false);
-  const bestsellers = getProducts('all').filter((p) => p.tags.includes('bestseller') && p.available !== false);
+  const bestsellers = getProducts('all').filter((p) => (p.tags || []).includes('bestseller') && p.available !== false);
 
   return (
     <div className="home-page" id="home-page">

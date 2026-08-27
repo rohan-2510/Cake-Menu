@@ -4,6 +4,8 @@
 
 export const OWNER_PHONE = '918431441492';
 export const OWNER_NAME = 'Priyanka';
+export const ADMIN_EMAIL = 'admin@cakemenu.com';
+export const DEFAULT_ADMIN_PASSWORD = 'admin';
 export const SHOP_NAME = 'Cake Menu';
 export const SHOP_TAGLINE = 'Handcrafted home-baked cakes & treats in Sirsi';
 export const SHOP_LOCATION = 'Sirsi, Uttara Kannada, Karnataka';
