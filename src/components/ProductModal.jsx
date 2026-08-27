@@ -1,0 +1,226 @@
+// ============================================
+// ProductModal — Interactive Customizer
+// ============================================
+import { useState, useMemo } from 'react';
+import { X, Star, Clock, ShoppingBag, Minus, Plus, AlertCircle } from 'lucide-react';
+import { SIZES } from '../data/products';
+import { useStore } from '../store/StoreContext';
+import { formatPrice, getEarliestDelivery, formatDate, toDateString } from '../utils/helpers';
+import './ProductModal.css';
+
+export default function ProductModal({ product, onClose }) {
+  const { dispatch, Actions } = useStore();
+
+  const sizes = SIZES[product.category] || SIZES.cakes;
+  const [selectedSize, setSelectedSize] = useState(sizes[0]);
+  const [selectedFlavor, setSelectedFlavor] = useState(product.flavors[0]);
+  const [customMessage, setCustomMessage] = useState('');
+  const [quantity, setQuantity] = useState(1);
+  const [added, setAdded] = useState(false);
+
+  const currentPrice = useMemo(() => {
+    return Math.round(product.basePrice * selectedSize.multiplier);
+  }, [product.basePrice, selectedSize]);
+
+  const totalPrice = currentPrice * quantity;
+
+  const earliest = getEarliestDelivery(product.leadTimeHours);
+  const earliestStr = formatDate(toDateString(earliest));
+
+  const maxMessageLength = 60;
+
+  const handleAddToCart = () => {
+    dispatch({
+      type: Actions.ADD_TO_CART,
+      payload: {
+        productId: product.id,
+        name: product.name,
+        size: selectedSize.id,
+        sizeName: selectedSize.label,
+        flavor: selectedFlavor,
+        customMessage: customMessage.trim(),
+        price: currentPrice,
+        leadTimeHours: product.leadTimeHours,
+        category: product.category,
+      },
+    });
+    dispatch({
+      type: Actions.SET_TOAST,
+      payload: `${product.name} added to cart! 🎉`,
+    });
+    setAdded(true);
+    setTimeout(() => onClose(), 800);
+  };
+
+  const getCategoryEmoji = () => {
+    switch (product.category) {
+      case 'cakes': return '🎂';
+      case 'cupcakes': return '🧁';
+      case 'brownies': return '🍫';
+      case 'seasonal': return '🎉';
+      default: return '🍰';
+    }
+  };
+
+  return (
+    <>
+      <div className="overlay" onClick={onClose} />
+      <div className="modal product-modal" id="product-modal">
+        {/* Close */}
+        <button className="product-modal__close" onClick={onClose} id="modal-close">
+          <X size={20} />
+        </button>
+
+        {/* Image Area */}
+        <div className="product-modal__image">
+          <div className="product-modal__image-bg">
+            <span className="product-modal__emoji">{getCategoryEmoji()}</span>
+          </div>
+        </div>
+
+        {/* Content */}
+        <div className="product-modal__content">
+          {/* Header */}
+          <div className="product-modal__header">
+            <div className="product-modal__tags">
+              {product.tags.includes('veg') && (
+                <span className="badge badge--veg">🟢 100% Eggless</span>
+              )}
+              {product.tags.includes('bestseller') && (
+                <span className="badge badge--bestseller">⭐ Bestseller</span>
+              )}
+              {product.isCustomizable && (
+                <span className="badge badge--custom">🎨 Customizable</span>
+              )}
+            </div>
+            <h2 className="product-modal__name font-display">{product.name}</h2>
+            <p className="product-modal__desc">{product.description}</p>
+
+            <div className="product-modal__info-row">
+              <div className="product-modal__rating">
+                <Star size={14} fill="var(--color-gold)" stroke="var(--color-gold)" />
+                <span>{product.rating}</span>
+                <span className="product-modal__review-count">({product.reviews} reviews)</span>
+              </div>
+              <div className="product-modal__lead-badge">
+                <Clock size={14} />
+                <span>Requires {product.leadTimeHours}h notice</span>
+              </div>
+            </div>
+
+            <div className="product-modal__earliest">
+              <AlertCircle size={14} />
+              <span>Earliest delivery: <strong>{earliestStr}</strong></span>
+            </div>
+          </div>
+
+          {/* Size Selector */}
+          <div className="product-modal__section">
+            <h3 className="product-modal__section-title">
+              Select {product.category === 'cakes' ? 'Weight' : 'Pack Size'}
+            </h3>
+            <div className="product-modal__sizes">
+              {sizes.map((size) => (
+                <button
+                  key={size.id}
+                  className={`product-modal__size-btn ${selectedSize.id === size.id ? 'active' : ''}`}
+                  onClick={() => setSelectedSize(size)}
+                  id={`size-${size.id}`}
+                >
+                  <span className="product-modal__size-label">{size.label}</span>
+                  <span className="product-modal__size-serves">Serves {size.serves}</span>
+                  <span className="product-modal__size-price">
+                    {formatPrice(Math.round(product.basePrice * size.multiplier))}
+                  </span>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Flavor Selector */}
+          {product.flavors.length > 1 && (
+            <div className="product-modal__section">
+              <h3 className="product-modal__section-title">Choose Flavor</h3>
+              <div className="product-modal__flavors">
+                {product.flavors.map((flavor) => (
+                  <button
+                    key={flavor}
+                    className={`product-modal__flavor-btn ${selectedFlavor === flavor ? 'active' : ''}`}
+                    onClick={() => setSelectedFlavor(flavor)}
+                    id={`flavor-${flavor.toLowerCase().replace(/\s/g, '-')}`}
+                  >
+                    {flavor}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Custom Message */}
+          {product.isCustomizable && (
+            <div className="product-modal__section">
+              <h3 className="product-modal__section-title">
+                Message on Cake <span className="optional">(optional)</span>
+              </h3>
+              <div className="product-modal__message-wrap">
+                <textarea
+                  className="input-field product-modal__message"
+                  placeholder="e.g. Happy Birthday Priya!"
+                  value={customMessage}
+                  onChange={(e) => setCustomMessage(e.target.value.slice(0, maxMessageLength))}
+                  rows={2}
+                  id="cake-message-input"
+                />
+                <span className="product-modal__char-count">
+                  {customMessage.length}/{maxMessageLength}
+                </span>
+              </div>
+            </div>
+          )}
+
+          {/* Allergens */}
+          {product.allergens.length > 0 && (
+            <div className="product-modal__allergens">
+              <span className="product-modal__allergen-label">Contains:</span>
+              {product.allergens.map((a) => (
+                <span key={a} className="product-modal__allergen-tag">{a}</span>
+              ))}
+            </div>
+          )}
+
+          {/* Quantity & Add to Cart */}
+          <div className="product-modal__actions">
+            <div className="product-modal__qty">
+              <button
+                className="product-modal__qty-btn"
+                onClick={() => setQuantity(Math.max(1, quantity - 1))}
+                disabled={quantity <= 1}
+                id="qty-minus"
+              >
+                <Minus size={16} />
+              </button>
+              <span className="product-modal__qty-value">{quantity}</span>
+              <button
+                className="product-modal__qty-btn"
+                onClick={() => setQuantity(quantity + 1)}
+                id="qty-plus"
+              >
+                <Plus size={16} />
+              </button>
+            </div>
+
+            <button
+              className={`btn btn--primary btn--lg product-modal__cart-btn ${added ? 'added' : ''}`}
+              onClick={handleAddToCart}
+              disabled={added}
+              id="add-to-cart-btn"
+            >
+              <ShoppingBag size={18} />
+              {added ? 'Added! ✓' : `Add to Cart — ${formatPrice(totalPrice)}`}
+            </button>
+          </div>
+        </div>
+      </div>
+    </>
+  );
+}

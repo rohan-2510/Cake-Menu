@@ -1,0 +1,416 @@
+/* AdminPage Styles */
+.admin-page {
+  min-height: 100vh;
+  padding: calc(var(--header-height) + var(--space-8)) 0 var(--space-16);
+  background: var(--color-gray-50);
+}
+
+/* Login */
+.admin-login {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.admin-login__card {
+  background: var(--color-white);
+  border-radius: var(--radius-2xl);
+  padding: var(--space-10) var(--space-8);
+  text-align: center;
+  max-width: 380px;
+  width: 90%;
+  box-shadow: var(--shadow-lg);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-4);
+}
+
+.admin-login__icon {
+  color: var(--color-terracotta);
+}
+
+.admin-login__card h2 {
+  font-size: var(--text-2xl);
+  color: var(--color-cocoa);
+}
+
+.admin-login__card p {
+  color: var(--color-gray-500);
+  font-size: var(--text-sm);
+}
+
+.admin-login__input-wrap {
+  width: 100%;
+}
+
+.admin-login__input {
+  text-align: center;
+  font-size: var(--text-2xl);
+  letter-spacing: 0.5em;
+  padding: var(--space-4);
+  border: 2px solid var(--color-gray-200);
+  border-radius: var(--radius-lg);
+  background: var(--color-cream);
+}
+
+.admin-login__input:focus {
+  border-color: var(--color-terracotta);
+}
+
+.admin-login__hint {
+  font-size: var(--text-xs);
+  color: var(--color-gray-400);
+}
+
+/* Header */
+.admin-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--space-6);
+}
+
+.admin-header h1 {
+  font-size: var(--text-3xl);
+  color: var(--color-cocoa);
+}
+
+.admin-header p {
+  color: var(--color-gray-500);
+  font-size: var(--text-sm);
+}
+
+/* Stats */
+.admin-stats {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: var(--space-4);
+  margin-bottom: var(--space-6);
+}
+
+.admin-stat-card {
+  background: var(--color-white);
+  border-radius: var(--radius-xl);
+  padding: var(--space-5);
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  box-shadow: var(--shadow-sm);
+}
+
+.admin-stat-card__icon {
+  font-size: 1.8rem;
+}
+
+.admin-stat-card__number {
+  display: block;
+  font-size: var(--text-2xl);
+  font-weight: 700;
+  color: var(--color-cocoa);
+  font-family: var(--font-display);
+}
+
+.admin-stat-card__label {
+  display: block;
+  font-size: var(--text-xs);
+  color: var(--color-gray-400);
+}
+
+/* Tabs */
+.admin-tabs {
+  display: flex;
+  gap: var(--space-2);
+  margin-bottom: var(--space-6);
+  background: var(--color-white);
+  padding: var(--space-2);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-sm);
+}
+
+.admin-tab {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-5);
+  border-radius: var(--radius-lg);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--color-gray-500);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  flex: 1;
+  justify-content: center;
+}
+
+.admin-tab:hover {
+  color: var(--color-cocoa);
+  background: var(--color-cream);
+}
+
+.admin-tab.active {
+  color: var(--color-white);
+  background: var(--color-cocoa);
+}
+
+/* Panel */
+.admin-panel {
+  animation: fadeInUp 0.3s ease-out;
+}
+
+.admin-empty {
+  text-align: center;
+  padding: var(--space-16);
+  font-size: var(--text-lg);
+  color: var(--color-gray-400);
+}
+
+.admin-empty span {
+  display: block;
+  font-size: 3rem;
+  margin-bottom: var(--space-4);
+}
+
+/* Orders */
+.admin-orders {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.admin-order {
+  background: var(--color-white);
+  border-radius: var(--radius-xl);
+  padding: var(--space-5);
+  box-shadow: var(--shadow-sm);
+}
+
+.admin-order__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--space-4);
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.admin-order__id {
+  font-family: monospace;
+  font-size: var(--text-sm);
+  font-weight: 700;
+  color: var(--color-cocoa);
+  margin-right: var(--space-2);
+}
+
+.admin-order__status {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: var(--space-1) var(--space-3);
+  border-radius: var(--radius-full);
+  font-size: var(--text-xs);
+  font-weight: 600;
+}
+
+.admin-order__date {
+  font-size: var(--text-xs);
+  color: var(--color-gray-400);
+}
+
+.admin-order__items {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-3) 0;
+  border-top: 1px solid var(--color-gray-100);
+  border-bottom: 1px solid var(--color-gray-100);
+  margin-bottom: var(--space-3);
+}
+
+.admin-order__item {
+  display: flex;
+  justify-content: space-between;
+  font-size: var(--text-sm);
+  color: var(--color-gray-600);
+}
+
+.admin-order__delivery {
+  display: flex;
+  gap: var(--space-4);
+  font-size: var(--text-sm);
+  color: var(--color-gray-500);
+  margin-bottom: var(--space-2);
+}
+
+.admin-order__customer {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  font-size: var(--text-sm);
+  color: var(--color-gray-500);
+  margin-bottom: var(--space-4);
+}
+
+.admin-order__footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.admin-order__total {
+  font-size: var(--text-lg);
+  font-weight: 700;
+  color: var(--color-terracotta);
+}
+
+/* Calendar */
+.admin-calendar-controls {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--space-5);
+  padding: var(--space-4) var(--space-5);
+  background: var(--color-white);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-sm);
+}
+
+.admin-calendar-controls h3 {
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--color-cocoa);
+}
+
+.admin-max-orders {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.admin-max-orders__btn {
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-md);
+  background: var(--color-cream);
+  color: var(--color-cocoa);
+  cursor: pointer;
+  transition: background var(--transition-fast);
+}
+
+.admin-max-orders__btn:hover {
+  background: var(--color-gray-200);
+}
+
+.admin-max-orders__value {
+  font-size: var(--text-xl);
+  font-weight: 700;
+  color: var(--color-cocoa);
+  min-width: 32px;
+  text-align: center;
+}
+
+.admin-calendar {
+  background: var(--color-white);
+  border-radius: var(--radius-xl);
+  overflow: hidden;
+  box-shadow: var(--shadow-sm);
+  margin-bottom: var(--space-4);
+}
+
+.admin-calendar .checkout-calendar__day.blocked {
+  background: var(--color-error) !important;
+  color: white !important;
+  font-weight: 700;
+}
+
+.admin-calendar-hint {
+  font-size: var(--text-sm);
+  color: var(--color-gray-500);
+  text-align: center;
+}
+
+/* Menu */
+.admin-menu-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.admin-menu-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-4) var(--space-5);
+  background: var(--color-white);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-sm);
+}
+
+.admin-menu-item__info {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.admin-menu-item__emoji {
+  font-size: 1.5rem;
+}
+
+.admin-menu-item__name {
+  display: block;
+  font-weight: 600;
+  color: var(--color-cocoa);
+  font-size: var(--text-sm);
+}
+
+.admin-menu-item__price {
+  display: block;
+  font-size: var(--text-xs);
+  color: var(--color-gray-400);
+}
+
+.admin-menu-item__actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.admin-toggle {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--color-gray-400);
+  cursor: pointer;
+  transition: color var(--transition-fast);
+}
+
+.admin-toggle.active {
+  color: var(--color-success);
+}
+
+.admin-toggle__label {
+  font-size: var(--text-xs);
+  font-weight: 600;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .admin-stats {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .admin-order__footer {
+    flex-direction: column;
+    gap: var(--space-3);
+    align-items: stretch;
+  }
+
+  .admin-menu-item {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--space-3);
+  }
+}
