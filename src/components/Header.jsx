@@ -5,6 +5,7 @@ import { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { ShoppingBag, Menu, X, Phone, LogOut, User, ShieldCheck, KeyRound } from 'lucide-react';
 import { useStore } from '../store/StoreContext';
+import { WhatsAppIcon } from './icons/SocialIcons';
 import './Header.css';
 
 export default function Header({ onOpenAuth }) {
@@ -27,9 +28,17 @@ export default function Header({ onOpenAuth }) {
   const navLinks = [
     { to: '/', label: 'Home' },
     { to: '/#menu', label: 'Menu' },
-    { to: '/#about', label: 'About' },
-    { to: '/#testimonials', label: 'Reviews' },
   ];
+
+  // Track Order is ONLY for customers (hidden for Admin)
+  if (!isAdmin) {
+    navLinks.push({ to: '/track', label: '📍 Track Order' });
+  }
+
+  navLinks.push(
+    { to: '/#about', label: 'About' },
+    { to: '/#testimonials', label: 'Reviews' }
+  );
 
   // ONLY show Dashboard if user is authenticated Admin
   if (isAdmin) {
@@ -55,17 +64,33 @@ export default function Header({ onOpenAuth }) {
 
         {/* Desktop Nav */}
         <nav className="header__nav" id="desktop-nav">
-          {navLinks.map((link) => (
-            <a
-              key={link.to}
-              href={link.to}
-              className={`header__nav-link ${location.pathname === link.to ? 'active' : ''} ${
-                link.isAdmin ? 'header__nav-link--admin' : ''
-              }`}
-            >
-              {link.label}
-            </a>
-          ))}
+          {navLinks.map((link) => {
+            const isAnchor = link.to.startsWith('/#');
+            if (isAnchor) {
+              return (
+                <a
+                  key={link.to}
+                  href={link.to}
+                  className={`header__nav-link ${
+                    link.isAdmin ? 'header__nav-link--admin' : ''
+                  }`}
+                >
+                  {link.label}
+                </a>
+              );
+            }
+            return (
+              <Link
+                key={link.to}
+                to={link.to}
+                className={`header__nav-link ${location.pathname === link.to ? 'active' : ''} ${
+                  link.isAdmin ? 'header__nav-link--admin' : ''
+                }`}
+              >
+                {link.label}
+              </Link>
+            );
+          })}
         </nav>
 
         {/* Actions */}
@@ -116,8 +141,9 @@ export default function Header({ onOpenAuth }) {
             className="header__whatsapp-btn"
             id="header-whatsapp"
             title="Chat on WhatsApp"
+            aria-label="Chat on WhatsApp"
           >
-            <Phone size={18} />
+            <WhatsAppIcon size={18} />
           </a>
 
           {/* Cart Button */}
@@ -182,24 +208,42 @@ export default function Header({ onOpenAuth }) {
               )}
             </div>
 
-            {navLinks.map((link) => (
-              <a
-                key={link.to}
-                href={link.to}
-                className={`header__mobile-link ${link.isAdmin ? 'header__mobile-link--admin' : ''}`}
-                onClick={() => setMobileMenuOpen(false)}
-              >
-                {link.label}
-              </a>
-            ))}
+            {navLinks.map((link) => {
+              const isAnchor = link.to.startsWith('/#');
+              if (isAnchor) {
+                return (
+                  <a
+                    key={link.to}
+                    href={link.to}
+                    className={`header__mobile-link ${link.isAdmin ? 'header__mobile-link--admin' : ''}`}
+                    onClick={() => setMobileMenuOpen(false)}
+                  >
+                    {link.label}
+                  </a>
+                );
+              }
+              return (
+                <Link
+                  key={link.to}
+                  to={link.to}
+                  className={`header__mobile-link ${location.pathname === link.to ? 'active' : ''} ${
+                    link.isAdmin ? 'header__mobile-link--admin' : ''
+                  }`}
+                  onClick={() => setMobileMenuOpen(false)}
+                >
+                  {link.label}
+                </Link>
+              );
+            })}
             <a
               href="https://wa.me/918431441492"
               target="_blank"
               rel="noopener noreferrer"
               className="btn btn--whatsapp btn--full"
-              style={{ marginTop: '0.5rem' }}
+              style={{ marginTop: '0.5rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
             >
-              💬 Chat on WhatsApp
+              <WhatsAppIcon size={18} />
+              <span>Chat on WhatsApp</span>
             </a>
           </div>
         </>

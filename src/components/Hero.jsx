@@ -1,7 +1,8 @@
 // ============================================
 // Hero Section — Cake Menu
 // ============================================
-import { ArrowRight, MessageCircle, Sparkles } from 'lucide-react';
+import { ArrowRight, Sparkles } from 'lucide-react';
+import { WhatsAppIcon } from './icons/SocialIcons';
 import './Hero.css';
 
 export default function Hero() {
@@ -18,7 +19,7 @@ export default function Hero() {
         <div className="hero__content">
           <div className="hero__badge animate-fade-in-up">
             <span className="hero__badge-dot" />
-            100% Eggless &amp; Vegetarian
+            Eggless &amp; With-Egg Options Available
           </div>
 
           <h1 className="hero__title font-display animate-fade-in-up" style={{ animationDelay: '0.1s' }}>
@@ -43,7 +44,7 @@ export default function Hero() {
               className="btn btn--whatsapp btn--lg"
               id="hero-whatsapp-btn"
             >
-              <MessageCircle size={18} />
+              <WhatsAppIcon size={18} />
               Chat on WhatsApp
             </a>
           </div>
@@ -60,8 +61,8 @@ export default function Hero() {
             </div>
             <div className="hero__stat-divider" />
             <div className="hero__stat">
-              <span className="hero__stat-number font-display">100%</span>
-              <span className="hero__stat-label">🟢 Eggless</span>
+              <span className="hero__stat-number font-display">Both</span>
+              <span className="hero__stat-label">Eggless &amp; Egg</span>
             </div>
           </div>
         </div>

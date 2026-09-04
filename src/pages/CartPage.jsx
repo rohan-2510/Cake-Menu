@@ -4,15 +4,14 @@
 import { Link } from 'react-router-dom';
 import { Trash2, Minus, Plus, ShoppingBag, ArrowLeft, ArrowRight } from 'lucide-react';
 import { useStore } from '../store/StoreContext';
-import { formatPrice, getDeliveryFee } from '../utils/helpers';
+import { formatPrice } from '../utils/helpers';
 import './CartPage.css';
 
 export default function CartPage() {
   const { state, dispatch, Actions, cartTotal, cartCount } = useStore();
   const { cart } = state;
 
-  const deliveryFee = getDeliveryFee(cartTotal);
-  const total = cartTotal + deliveryFee;
+
 
   const updateQty = (id, delta) => {
     const item = cart.find((i) => i.id === id);
@@ -61,7 +60,21 @@ export default function CartPage() {
             {cart.map((item) => (
               <div className="cart-item" key={item.id} id={`cart-item-${item.id}`}>
                 <div className="cart-item__image">
-                  <span className="cart-item__emoji">
+                  {item.image ? (
+                    <img
+                      src={item.image}
+                      alt={item.name}
+                      className="cart-item__img"
+                      onError={(e) => {
+                        e.target.style.display = 'none';
+                        if (e.target.nextSibling) e.target.nextSibling.style.display = 'block';
+                      }}
+                    />
+                  ) : null}
+                  <span
+                    className="cart-item__emoji"
+                    style={{ display: item.image ? 'none' : 'block' }}
+                  >
                     {item.category === 'cakes' ? '🎂' : item.category === 'cupcakes' ? '🧁' : item.category === 'brownies' ? '🍫' : '🎉'}
                   </span>
                 </div>
@@ -71,6 +84,11 @@ export default function CartPage() {
                   <div className="cart-item__meta">
                     <span>{item.sizeName}</span>
                     {item.flavor && <span>• {item.flavor}</span>}
+                    {item.eggPreference && (
+                      <span style={{ color: item.eggPreference === 'Eggless' ? 'var(--color-veg, #2E7D32)' : 'var(--color-terracotta)' }}>
+                        • {item.eggPreference === 'Eggless' ? '🟢 Eggless' : '🥚 With Egg'}
+                      </span>
+                    )}
                   </div>
                   {item.customMessage && (
                     <p className="cart-item__message">📝 "{item.customMessage}"</p>
@@ -112,20 +130,9 @@ export default function CartPage() {
                 <span>Subtotal</span>
                 <span>{formatPrice(cartTotal)}</span>
               </div>
-              <div className="cart-summary__row">
-                <span>Delivery</span>
-                <span className={deliveryFee === 0 ? 'cart-summary__free' : ''}>
-                  {deliveryFee === 0 ? 'FREE 🎉' : formatPrice(deliveryFee)}
-                </span>
-              </div>
-              {deliveryFee > 0 && (
-                <p className="cart-summary__free-note">
-                  Add {formatPrice(500 - cartTotal)} more for free delivery
-                </p>
-              )}
               <div className="cart-summary__row cart-summary__row--total">
                 <span>Total</span>
-                <span className="font-display">{formatPrice(total)}</span>
+                <span className="font-display">{formatPrice(cartTotal)}</span>
               </div>
             </div>
 
@@ -135,7 +142,7 @@ export default function CartPage() {
             </Link>
 
             <p className="cart-summary__note">
-              🟢 100% Eggless • 💳 Cash on Delivery
+              💳 Pay on Pickup • 🏠 Self-Pickup from Sirsi
             </p>
           </div>
         </div>

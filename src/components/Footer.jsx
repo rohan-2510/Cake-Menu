@@ -3,9 +3,12 @@
 // ============================================
 import { MapPin, Phone, Clock, Heart } from 'lucide-react';
 import { SHOP_NAME, FSSAI_NUMBER, SHOP_LOCATION } from '../data/products';
+import { useStore } from '../store/StoreContext';
+import { InstagramIcon, WhatsAppIcon } from './icons/SocialIcons';
 import './Footer.css';
 
 export default function Footer() {
+  const { isAdmin } = useStore();
   return (
     <footer className="footer" id="footer">
       <div className="container">
@@ -20,13 +23,9 @@ export default function Footer() {
               </div>
             </div>
             <p className="footer__desc">
-              Handcrafted, 100% eggless home-baked cakes, cupcakes &amp; brownies.
+              Handcrafted home-baked cakes, cupcakes &amp; brownies — available in both eggless and with-egg options.
               Made fresh with love in Sirsi for your celebrations.
             </p>
-            <div className="footer__fssai">
-              <span className="footer__fssai-badge">🏷️ FSSAI Licensed</span>
-              <span className="footer__fssai-num">{FSSAI_NUMBER}</span>
-            </div>
           </div>
 
           {/* Quick Links */}
@@ -36,6 +35,11 @@ export default function Footer() {
             <a href="#about" className="footer__link">About Us</a>
             <a href="#testimonials" className="footer__link">Reviews</a>
             <a href="/cart" className="footer__link">Cart & Checkout</a>
+            {!isAdmin ? (
+              <a href="/track" className="footer__link">📍 Track Your Order</a>
+            ) : (
+              <a href="/admin" className="footer__link" style={{ opacity: 0.9 }}>👑 Admin Dashboard</a>
+            )}
           </div>
 
           {/* Contact */}
@@ -55,13 +59,14 @@ export default function Footer() {
             </div>
             <div className="footer__socials">
               <a
-                href="https://instagram.com"
+                href="https://www.instagram.com/the_cakemenu/"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="footer__social-btn"
+                className="footer__social-btn footer__social-btn--ig"
                 aria-label="Instagram"
+                title="Follow us on Instagram"
               >
-                📸
+                <InstagramIcon size={20} />
               </a>
               <a
                 href="https://wa.me/918431441492"
@@ -69,8 +74,9 @@ export default function Footer() {
                 rel="noopener noreferrer"
                 className="footer__social-btn footer__social-btn--wa"
                 aria-label="WhatsApp"
+                title="Chat on WhatsApp"
               >
-                💬
+                <WhatsAppIcon size={20} />
               </a>
             </div>
           </div>

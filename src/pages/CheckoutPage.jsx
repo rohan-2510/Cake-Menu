@@ -4,40 +4,39 @@
 import { useState, useMemo } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import {
-  ArrowLeft, Calendar, Clock, MapPin, User, Phone, MessageCircle,
+  ArrowLeft, Calendar, Clock, User, Phone,
   FileText, Send, CheckCircle, ChevronLeft, ChevronRight
 } from 'lucide-react';
+import { WhatsAppIcon } from '../components/icons/SocialIcons';
 import { useStore } from '../store/StoreContext';
 import { TIME_SLOTS } from '../data/products';
 import {
-  formatPrice, formatDate, getDeliveryFee, getMaxLeadTime,
-  getEarliestDelivery, toDateString, isSlotAvailableToday,
+  formatPrice, formatDate, getMaxLeadTime,
+  getEarliestPickup, toDateString, isSlotAvailableToday,
   generateWhatsAppMessage, getWhatsAppUrl
 } from '../utils/helpers';
 import './CheckoutPage.css';
 
 export default function CheckoutPage() {
   const navigate = useNavigate();
-  const { state, dispatch, Actions, cartTotal, getProduct, isDateAvailable, currentUser } = useStore();
+  const { state, dispatch, Actions, cartTotal, getProduct, isDateAvailable, currentUser, placeOrder } = useStore();
   const { cart } = state;
 
-  const [deliveryDate, setDeliveryDate] = useState('');
+  const [pickupDate, setPickupDate] = useState('');
   const [timeSlot, setTimeSlot] = useState('');
   const [customer, setCustomer] = useState({
     name: (currentUser && currentUser.role === 'customer') ? currentUser.name : '',
     phone: (currentUser && currentUser.role === 'customer') ? currentUser.phone : '',
-    address: '',
     notes: '',
   });
   const [orderMethod, setOrderMethod] = useState('whatsapp');
   const [orderPlaced, setOrderPlaced] = useState(null);
   const [calendarMonth, setCalendarMonth] = useState(new Date());
 
-  const deliveryFee = getDeliveryFee(cartTotal);
-  const total = cartTotal + deliveryFee;
+  const total = cartTotal;
 
   const maxLeadTime = getMaxLeadTime(cart, getProduct);
-  const earliestDate = getEarliestDelivery(maxLeadTime);
+  const earliestDate = getEarliestPickup(maxLeadTime);
   const earliestDateStr = toDateString(earliestDate);
 
   // Calendar logic
@@ -67,33 +66,32 @@ export default function CheckoutPage() {
     return days;
   }, [calendarMonth, earliestDateStr, isDateAvailable]);
 
-  const isToday = deliveryDate === toDateString(new Date());
+  const isToday = pickupDate === toDateString(new Date());
 
-  const isFormValid = deliveryDate && timeSlot && customer.name.trim() && customer.phone.trim().length >= 10 && customer.address.trim();
+  const isFormValid = pickupDate && timeSlot && customer.name.trim() && customer.phone.trim().length >= 10;
 
-  const handlePlaceOrder = () => {
+  const handlePlaceOrder = async () => {
     const slotObj = TIME_SLOTS.find((s) => s.id === timeSlot);
     const orderData = {
       items: cart.map((item) => ({
         ...item,
       })),
-      deliveryDate,
+      pickupDate,
       timeSlot: slotObj?.label + ' (' + slotObj?.time + ')',
       customer: { ...customer },
       subtotal: cartTotal,
-      deliveryFee,
       total,
     };
+
+    const placedOrder = await placeOrder(orderData);
 
     if (orderMethod === 'whatsapp') {
       const msg = generateWhatsAppMessage(orderData);
       const url = getWhatsAppUrl(msg);
       window.open(url, '_blank');
-      dispatch({ type: Actions.PLACE_ORDER, payload: orderData });
-      setOrderPlaced({ ...orderData, id: 'WhatsApp Order' });
+      setOrderPlaced(placedOrder);
     } else {
-      dispatch({ type: Actions.PLACE_ORDER, payload: orderData });
-      setOrderPlaced({ ...orderData, id: state.orders.length > 0 ? state.orders[0]?.id : 'CM-ORDER' });
+      setOrderPlaced(placedOrder);
     }
   };
 
@@ -101,25 +99,66 @@ export default function CheckoutPage() {
     return (
       <div className="checkout-page" id="checkout-page">
         <div className="container">
-          <div className="checkout-success animate-fade-in-up">
-            <CheckCircle size={64} className="checkout-success__icon" />
-            <h1 className="font-display">Order Placed Successfully! 🎉</h1>
-            <p>Thank you, <strong>{customer.name}</strong>! Your order has been placed.</p>
-            <div className="checkout-success__details">
-              <p>📅 Delivery: <strong>{formatDate(deliveryDate)}</strong></p>
-              <p>🕐 Time: <strong>{TIME_SLOTS.find((s) => s.id === timeSlot)?.label}</strong></p>
-              <p>💰 Total: <strong>{formatPrice(total)}</strong></p>
-              <p>💳 Payment: <strong>Cash on Delivery</strong></p>
+            <div className="checkout-success animate-fade-in-up">
+              <span style={{ fontSize: '3.5rem', display: 'block', marginBottom: '0.5rem' }}>⏳</span>
+              <h1 className="font-display">Order Submitted for Approval!</h1>
+              <div style={{
+                margin: '0.75rem 0 1.25rem',
+                padding: '0.6rem 1.2rem',
+                background: 'var(--color-cream, #FFF3EB)',
+                border: '1px dashed var(--color-terracotta)',
+                borderRadius: '12px',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '8px'
+              }}>
+                <span style={{ fontSize: '0.9rem', color: 'var(--color-gray-600)' }}>Your Order ID:</span>
+                <strong style={{ fontSize: '1.15rem', color: 'var(--color-cocoa)', fontFamily: 'monospace' }}>
+                  #{orderPlaced.id}
+                </strong>
+              </div>
+              <p>Thank you, <strong>{customer.name}</strong>! Your order request has been sent to Priyanka for approval.</p>
+
+              <div style={{
+                background: '#FFF8E1',
+                border: '1px solid #FFE082',
+                borderRadius: '12px',
+                padding: '1rem 1.25rem',
+                margin: '1.25rem auto',
+                maxWidth: '480px',
+                textAlign: 'left',
+                display: 'flex',
+                gap: '12px',
+                alignItems: 'flex-start'
+              }}>
+                <span style={{ fontSize: '1.5rem', lineHeight: 1 }}>👩‍🍳</span>
+                <div style={{ fontSize: '0.88rem', color: '#5D4037', lineHeight: 1.45 }}>
+                  <strong style={{ display: 'block', color: '#B78103', marginBottom: '2px' }}>Next Step: Baker Review & Approval</strong>
+                  Priyanka will review your requested pickup slot and cake customization. Once approved, your order will be officially confirmed and prepared fresh!
+                </div>
+              </div>
+
+              <div className="checkout-success__details">
+                <p>📅 Requested Pickup: <strong>{formatDate(pickupDate)}</strong></p>
+                <p>🕐 Time Slot: <strong>{TIME_SLOTS.find((s) => s.id === timeSlot)?.label}</strong></p>
+                <p>💰 Total: <strong>{formatPrice(total)}</strong></p>
+                <p>💳 Payment: <strong>Pay on Pickup</strong></p>
+                <p>🏠 <strong>Self-pickup from Sirsi</strong></p>
+              </div>
+              {orderMethod === 'whatsapp' && (
+                <p className="checkout-success__wa-note">
+                  📱 A WhatsApp message has been opened. Please send it to connect directly with Priyanka.
+                </p>
+              )}
+              <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'center', flexWrap: 'wrap', marginTop: '1.5rem' }}>
+                <Link to={`/track/${orderPlaced.id}`} className="btn btn--primary btn--lg">
+                  📍 Track Approval Status Live
+                </Link>
+                <Link to="/" className="btn btn--outline btn--lg">
+                  Back to Home
+                </Link>
+              </div>
             </div>
-            {orderMethod === 'whatsapp' && (
-              <p className="checkout-success__wa-note">
-                📱 A WhatsApp message has been opened. Please send it to confirm your order with Priyanka.
-              </p>
-            )}
-            <Link to="/" className="btn btn--primary btn--lg">
-              Back to Home
-            </Link>
-          </div>
         </div>
       </div>
     );
@@ -148,7 +187,7 @@ export default function CheckoutPage() {
             <div className="checkout-section" id="date-picker-section">
               <h2 className="checkout-section__title">
                 <Calendar size={18} />
-                Delivery Date
+                Pickup Date
               </h2>
               <p className="checkout-section__hint">
                 ⏳ Items require at least {maxLeadTime}h preparation. Earliest: <strong>{formatDate(earliestDateStr)}</strong>
@@ -180,8 +219,8 @@ export default function CheckoutPage() {
                     ) : (
                       <button
                         key={day.dateStr}
-                        className={`checkout-calendar__day ${day.disabled ? 'disabled' : ''} ${deliveryDate === day.dateStr ? 'selected' : ''}`}
-                        onClick={() => !day.disabled && setDeliveryDate(day.dateStr)}
+                        className={`checkout-calendar__day ${day.disabled ? 'disabled' : ''} ${pickupDate === day.dateStr ? 'selected' : ''}`}
+                        onClick={() => !day.disabled && setPickupDate(day.dateStr)}
                         disabled={day.disabled}
                         title={day.isBlocked ? 'Fully booked / blocked' : day.isTooSoon ? 'Too soon (lead time)' : ''}
                       >
@@ -226,7 +265,7 @@ export default function CheckoutPage() {
             <div className="checkout-section" id="customer-info-section">
               <h2 className="checkout-section__title">
                 <User size={18} />
-                Delivery Details
+                Your Details
               </h2>
 
               <div className="checkout-fields">
@@ -250,20 +289,6 @@ export default function CheckoutPage() {
                     placeholder="+91 98765 43210"
                     value={customer.phone}
                     onChange={(e) => setCustomer({ ...customer, phone: e.target.value })}
-                  />
-                </div>
-
-                <div className="input-group">
-                  <label htmlFor="customer-address">
-                    <MapPin size={14} style={{ display: 'inline', verticalAlign: 'middle' }} /> Address in Sirsi *
-                  </label>
-                  <textarea
-                    id="customer-address"
-                    className="input-field"
-                    placeholder="House no, Street name, Landmark"
-                    rows={2}
-                    value={customer.address}
-                    onChange={(e) => setCustomer({ ...customer, address: e.target.value })}
                   />
                 </div>
 
@@ -295,7 +320,7 @@ export default function CheckoutPage() {
                   onClick={() => setOrderMethod('whatsapp')}
                   id="method-whatsapp"
                 >
-                  <MessageCircle size={24} className="checkout-method__icon checkout-method__icon--wa" />
+                  <WhatsAppIcon size={24} className="checkout-method__icon checkout-method__icon--wa" />
                   <div>
                     <span className="checkout-method__label">Order via WhatsApp</span>
                     <span className="checkout-method__desc">Send order details directly to Priyanka</span>
@@ -309,7 +334,7 @@ export default function CheckoutPage() {
                   <Send size={24} className="checkout-method__icon" />
                   <div>
                     <span className="checkout-method__label">Place Order Online</span>
-                    <span className="checkout-method__desc">Cash on Delivery — Pay when you receive</span>
+                    <span className="checkout-method__desc">Pay on Pickup — Pay when you collect</span>
                   </div>
                 </button>
               </div>
@@ -332,26 +357,17 @@ export default function CheckoutPage() {
             </div>
 
             <div className="checkout-summary__rows">
-              <div className="checkout-summary__row">
-                <span>Subtotal</span>
-                <span>{formatPrice(cartTotal)}</span>
-              </div>
-              <div className="checkout-summary__row">
-                <span>Delivery</span>
-                <span className={deliveryFee === 0 ? 'checkout-summary__free' : ''}>
-                  {deliveryFee === 0 ? 'FREE 🎉' : formatPrice(deliveryFee)}
-                </span>
-              </div>
               <div className="checkout-summary__row checkout-summary__row--total">
                 <span>Total</span>
                 <span className="font-display">{formatPrice(total)}</span>
               </div>
             </div>
 
-            {deliveryDate && (
+            {pickupDate && (
               <div className="checkout-summary__delivery">
-                <p>📅 {formatDate(deliveryDate)}</p>
+                <p>📅 {formatDate(pickupDate)}</p>
                 {timeSlot && <p>🕐 {TIME_SLOTS.find((s) => s.id === timeSlot)?.label}</p>}
+                <p>🏠 Self-pickup from Sirsi</p>
               </div>
             )}
 
@@ -363,7 +379,7 @@ export default function CheckoutPage() {
             >
               {orderMethod === 'whatsapp' ? (
                 <>
-                  <MessageCircle size={18} />
+                  <WhatsAppIcon size={18} />
                   Send via WhatsApp
                 </>
               ) : (
@@ -375,7 +391,7 @@ export default function CheckoutPage() {
             </button>
 
             <p className="checkout-summary__note">
-              💳 Cash on Delivery • 🟢 100% Eggless
+              💳 Pay on Pickup • 🏠 Self-Pickup from Sirsi
             </p>
           </div>
         </div>

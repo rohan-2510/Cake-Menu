@@ -230,9 +230,43 @@
 .admin-order__customer {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 6px;
   font-size: 0.85rem;
   color: var(--color-gray-600, #5C554C);
+}
+
+.admin-order__customer-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.admin-order__customer-item a {
+  color: inherit;
+  text-decoration: none;
+}
+
+.admin-order__customer-item a:hover {
+  text-decoration: underline;
+}
+
+.admin-order__wa-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: #25D366;
+  color: #ffffff !important;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  margin-left: 2px;
+}
+
+.admin-order__wa-link:hover {
+  transform: scale(1.15);
+  box-shadow: 0 2px 8px rgba(37, 211, 102, 0.4);
+  text-decoration: none !important;
 }
 
 .admin-order__delivery-info {
@@ -516,6 +550,56 @@
   gap: 1rem;
 }
 
+/* Size / Quantity Builder */
+.admin-sizes-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.admin-size-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  background: var(--color-gray-50, #FAFAF8);
+  border: 1px solid var(--color-gray-200, #E8E4DC);
+  border-radius: 10px;
+}
+
+.admin-size-row .input-field {
+  flex: 1;
+  min-width: 0;
+  font-size: 0.85rem;
+  padding: 0.45rem 0.65rem;
+}
+
+.admin-size-price {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--color-terracotta, #C4704B);
+  white-space: nowrap;
+  min-width: 60px;
+  text-align: right;
+}
+
+.admin-checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 0.92rem;
+  color: var(--color-cocoa, #3D2314);
+}
+
+.admin-checkbox-label input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--color-terracotta, #C4704B);
+  cursor: pointer;
+}
+
 .admin-form-actions {
   display: flex;
   justify-content: flex-end;
@@ -698,3 +782,216 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* --- Approval Workflow & Next Steps Styles --- */
+.admin-stat-card--attention {
+  border-color: #FFA726 !important;
+  background: linear-gradient(135deg, #FFFFFF, #FFF8E1) !important;
+  box-shadow: 0 4px 16px rgba(245, 124, 0, 0.12) !important;
+}
+
+.admin-stat-card--attention .admin-stat-card__number {
+  color: #E65100 !important;
+}
+
+.admin-pending-banner {
+  background: linear-gradient(135deg, #FFF8E1, #FFF3E0);
+  border: 1px solid #FFE082;
+  border-radius: 16px;
+  padding: 1rem 1.5rem;
+  margin-bottom: 1.5rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+  box-shadow: 0 4px 14px rgba(245, 124, 0, 0.08);
+}
+
+.admin-pending-banner__left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.admin-pending-banner__icon {
+  font-size: 1.8rem;
+  line-height: 1;
+}
+
+.admin-pending-banner strong {
+  display: block;
+  font-size: 1rem;
+  color: #B78103;
+}
+
+.admin-pending-banner p {
+  margin: 2px 0 0;
+  font-size: 0.85rem;
+  color: #6D4C41;
+}
+
+.admin-filter-btn--pending {
+  border-color: #FFA726 !important;
+  color: #E65100 !important;
+  background: #FFF8E1 !important;
+  font-weight: 700 !important;
+}
+
+.admin-order-card--pending {
+  border: 2px solid #FFA726 !important;
+  box-shadow: 0 6px 20px rgba(245, 124, 0, 0.1) !important;
+}
+
+.admin-order__approval-box {
+  background: linear-gradient(135deg, #FFF8E1, #FFFDE7);
+  border: 1px solid #FFE082;
+  border-radius: 12px;
+  padding: 0.9rem 1.2rem;
+  margin-bottom: 1.25rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.admin-order__approval-info {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.admin-order__approval-badge {
+  font-size: 0.825rem;
+  font-weight: 700;
+  color: #B78103;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.admin-order__approval-text {
+  font-size: 0.85rem;
+  color: #5D4037;
+}
+
+.admin-order__approval-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.admin-approval-btn {
+  padding: 7px 16px;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.admin-approval-btn--approve {
+  background: #2E7D32 !important;
+  color: #FFFFFF !important;
+  border: none;
+  box-shadow: 0 2px 8px rgba(46, 125, 50, 0.3);
+}
+
+.admin-approval-btn--approve:hover {
+  background: #1B5E20 !important;
+  transform: translateY(-1px);
+}
+
+.admin-approval-btn--decline {
+  color: #C62828 !important;
+  border-color: #EF9A9A !important;
+  background: #FFFFFF !important;
+}
+
+.admin-approval-btn--decline:hover {
+  background: #FFEBEE !important;
+  border-color: #EF5350 !important;
+}
+
+.admin-order__next-steps {
+  background: #F9F8F6;
+  border: 1px solid var(--color-gray-200, #E8E4DC);
+  border-radius: 12px;
+  padding: 0.8rem 1rem;
+  margin-bottom: 1.25rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.admin-order__next-label {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--color-cocoa, #3D2314);
+}
+
+.admin-order__next-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.btn--whatsapp-outline {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: #FFFFFF;
+  border: 1px solid #25D366;
+  color: #128C7E;
+  font-size: 0.825rem;
+  font-weight: 600;
+  padding: 6px 12px;
+  border-radius: 10px;
+  text-decoration: none;
+  transition: all 0.2s ease;
+}
+
+.btn--whatsapp-outline:hover {
+  background: #25D366;
+  color: #FFFFFF;
+  box-shadow: 0 2px 8px rgba(37, 211, 102, 0.35);
+}
+
+/* Status Badges */
+.badge--status-pending_approval,
+.badge--status-placed {
+  background: #FFF8E1;
+  color: #B78103;
+  border: 1px solid #FFE082;
+}
+
+.badge--status-confirmed {
+  background: #E8F5E9;
+  color: #2E7D32;
+  border: 1px solid #C8E6C9;
+}
+
+.badge--status-preparing {
+  background: #FFF3E0;
+  color: #E65100;
+  border: 1px solid #FFE0B2;
+}
+
+.badge--status-ready {
+  background: #E1F5FE;
+  color: #0288D1;
+  border: 1px solid #B3E5FC;
+}
+
+.badge--status-picked_up {
+  background: #E8F5E9;
+  color: #1B5E20;
+  border: 1px solid #A5D6A7;
+}
+
+.badge--status-cancelled {
+  background: #FFEBEE;
+  color: #C62828;
+  border: 1px solid #FFCDD2;
+}
+

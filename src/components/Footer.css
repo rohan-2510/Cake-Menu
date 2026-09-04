@@ -135,7 +135,13 @@
 }
 
 .footer__social-btn--wa:hover {
-  background: rgba(37, 211, 102, 0.2);
+  background: #25D366;
+  color: #FFFFFF;
+}
+
+.footer__social-btn--ig:hover {
+  background: radial-gradient(circle at 30% 107%, #fdf497 0%, #fdf497 5%, #fd5949 45%, #d6249f 60%, #285AEB 90%);
+  color: #FFFFFF;
 }
 
 /* Bottom */

@@ -8,12 +8,14 @@ import './ProductCard.css';
 
 export default function ProductCard({ product, onQuickView, onAddToCart }) {
   const [imageLoaded, setImageLoaded] = useState(false);
+  const [imageError, setImageError] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
 
   const {
     name = 'Delicious Cake',
     basePrice = 0,
     description = '',
+    image = '',
     tags = [],
     isCustomizable = false,
     leadTimeHours = 24,
@@ -42,14 +44,27 @@ export default function ProductCard({ product, onQuickView, onAddToCart }) {
     >
       {/* Image */}
       <div className="product-card__image-wrap">
-        <div className="product-card__image-placeholder">
-          <span className="product-card__emoji">{getCategoryEmoji()}</span>
-        </div>
+        {image && !imageError ? (
+          <img
+            src={image}
+            alt={name}
+            className={`product-card__img ${imageLoaded ? 'product-card__img--loaded' : ''}`}
+            loading="lazy"
+            onLoad={() => setImageLoaded(true)}
+            onError={() => setImageError(true)}
+          />
+        ) : null}
+
+        {(!image || imageError || !imageLoaded) && (
+          <div className={`product-card__image-placeholder ${image && !imageError ? 'product-card__image-placeholder--under' : ''}`}>
+            <span className="product-card__emoji">{getCategoryEmoji()}</span>
+          </div>
+        )}
 
         {/* Badges */}
         <div className="product-card__badges">
-          {(tags || []).includes('veg') && (
-            <span className="badge badge--veg">🟢 Eggless</span>
+          {product.eggless && (
+            <span className="badge badge--veg">🟢 Eggless Available</span>
           )}
           {(tags || []).includes('bestseller') && (
             <span className="badge badge--bestseller">⭐ Bestseller</span>

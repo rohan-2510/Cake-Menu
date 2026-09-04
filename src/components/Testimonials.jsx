@@ -4,12 +4,11 @@
 import { useState, useEffect } from 'react';
 import { Star, ChevronLeft, ChevronRight, Quote } from 'lucide-react';
 import { useStore } from '../store/StoreContext';
-import { TESTIMONIALS as DEFAULT_TESTIMONIALS } from '../data/products';
 import './Testimonials.css';
 
 export default function Testimonials() {
   const { state } = useStore();
-  const rawList = state.testimonials && state.testimonials.length > 0 ? state.testimonials : DEFAULT_TESTIMONIALS;
+  const rawList = state.testimonials || [];
   const list = rawList.filter((t) => t.visible !== false);
   const [current, setCurrent] = useState(0);
 

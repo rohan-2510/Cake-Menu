@@ -2,14 +2,12 @@
 // CAKE MENU — State Management with Firebase Sync & localStorage
 // ============================================
 import { createContext, useContext, useReducer, useEffect, useCallback } from 'react';
-import { PRODUCTS, TESTIMONIALS, MAX_ORDERS_PER_DAY } from '../data/products';
+import { MAX_ORDERS_PER_DAY, ADMIN_EMAIL, normalizeOrderStatus } from '../data/products';
 import {
   onAuthListener,
   subscribeMenu,
   subscribeTestimonials,
   subscribeOrders,
-  seedMenuIfEmpty,
-  seedTestimonialsIfEmpty,
   addMenuItem as fbAddMenuItem,
   updateMenuItem as fbUpdateMenuItem,
   deleteMenuItem as fbDeleteMenuItem,
@@ -33,13 +31,15 @@ const getStoredState = (key, fallback) => {
 
 const initialState = {
   cart: getStoredState('cart', []),
-  orders: getStoredState('orders', []),
-  menuItems: PRODUCTS,
-  testimonials: TESTIMONIALS,
+  orders: getStoredState('orders', []).map((o) => ({
+    ...o,
+    status: normalizeOrderStatus(o.status),
+  })),
+  menuItems: getStoredState('menuItems', []),
+  testimonials: getStoredState('testimonials', []),
   blockedDates: getStoredState('blockedDates', []),
   maxOrdersPerDay: getStoredState('maxOrdersPerDay', MAX_ORDERS_PER_DAY),
   productOverrides: getStoredState('productOverrides', {}),
-  adminPin: getStoredState('adminPin', '1234'),
   users: getStoredState('users', []),
   currentUser: getStoredState('currentUser', null), // { name, email, phone, role: 'customer' | 'admin' | 'guest' }
   toast: null,
@@ -79,7 +79,13 @@ function storeReducer(state, action) {
       return { ...state, testimonials: action.payload };
 
     case Actions.SET_ORDERS:
-      return { ...state, orders: action.payload };
+      return {
+        ...state,
+        orders: (action.payload || []).map((o) => ({
+          ...o,
+          status: normalizeOrderStatus(o.status),
+        })),
+      };
 
     case Actions.ADD_TO_CART: {
       const existing = state.cart.find(
@@ -135,7 +141,7 @@ function storeReducer(state, action) {
       const order = {
         ...action.payload,
         id: action.payload.id || `ORD-${Date.now().toString(36).toUpperCase()}`,
-        status: 'placed',
+        status: action.payload.status ? normalizeOrderStatus(action.payload.status) : 'pending_approval',
         placedAt: new Date().toISOString(),
       };
       return {
@@ -226,7 +232,7 @@ function storeReducer(state, action) {
         currentUser: {
           id: 'admin_root',
           name: 'Owner Priyanka',
-          email: 'admin@cakemenu.com',
+          email: ADMIN_EMAIL,
           role: 'admin',
         },
       };
@@ -276,9 +282,8 @@ export function StoreProvider({ children }) {
 
   // 2. Real-time Firestore Menu Sync
   useEffect(() => {
-    seedMenuIfEmpty();
     const unsubscribe = subscribeMenu((items) => {
-      if (items && items.length > 0) {
+      if (items) {
         dispatch({ type: Actions.SET_MENU_ITEMS, payload: items });
       }
     });
@@ -287,26 +292,35 @@ export function StoreProvider({ children }) {
 
   // 3. Real-time Firestore Testimonials Sync
   useEffect(() => {
-    seedTestimonialsIfEmpty();
     const unsubscribe = subscribeTestimonials((items) => {
-      if (items && items.length > 0) {
+      if (items) {
         dispatch({ type: Actions.SET_TESTIMONIALS, payload: items });
       }
     });
     return () => unsubscribe();
   }, []);
 
-  // 4. Real-time Firestore Orders Sync
+  // 4. Real-time Firestore Orders Sync (active when admin is logged in)
   useEffect(() => {
-    const unsubscribe = subscribeOrders((orders) => {
-      if (orders && orders.length > 0) {
-        dispatch({ type: Actions.SET_ORDERS, payload: orders });
-      }
-    });
-    return () => unsubscribe();
-  }, []);
+    if (state.currentUser?.role === 'admin') {
+      const unsubscribe = subscribeOrders((orders) => {
+        if (orders) {
+          dispatch({ type: Actions.SET_ORDERS, payload: orders });
+        }
+      });
+      return () => unsubscribe();
+    }
+  }, [state.currentUser?.role]);
 
   // Local Storage Persistence
+  useEffect(() => {
+    localStorage.setItem('cakeMenu_menuItems', JSON.stringify(state.menuItems));
+  }, [state.menuItems]);
+
+  useEffect(() => {
+    localStorage.setItem('cakeMenu_testimonials', JSON.stringify(state.testimonials));
+  }, [state.testimonials]);
+
   useEffect(() => {
     localStorage.setItem('cakeMenu_cart', JSON.stringify(state.cart));
   }, [state.cart]);
@@ -342,7 +356,7 @@ export function StoreProvider({ children }) {
   // Helper: get product with overrides applied (reads from live menuItems)
   const getProduct = useCallback(
     (productId) => {
-      const product = (state.menuItems || PRODUCTS).find((p) => p.id === productId);
+      const product = (state.menuItems || []).find((p) => p.id === productId);
       if (!product) return null;
       const overrides = state.productOverrides[productId] || {};
       return { ...product, ...overrides };
@@ -353,7 +367,7 @@ export function StoreProvider({ children }) {
   // Helper: get all products with overrides
   const getProducts = useCallback(
     (category = 'all') => {
-      return (state.menuItems || PRODUCTS).map((p) => ({
+      return (state.menuItems || []).map((p) => ({
         ...p,
         ...(state.productOverrides[p.id] || {}),
       })).filter((p) => category === 'all' || p.category === category);
@@ -366,7 +380,7 @@ export function StoreProvider({ children }) {
     (dateStr) => {
       if (state.blockedDates.includes(dateStr)) return false;
       const ordersOnDate = state.orders.filter(
-        (o) => o.deliveryDate === dateStr && o.status !== 'delivered'
+        (o) => (o.pickupDate || o.deliveryDate) === dateStr && o.status !== 'picked_up'
       );
       return ordersOnDate.length < state.maxOrdersPerDay;
     },
@@ -467,6 +481,40 @@ export function StoreProvider({ children }) {
     }
   };
 
+  // Orders Operations (Firestore + Local)
+  const placeOrder = async (orderData) => {
+    const orderId = orderData.id || `ORD-${Date.now().toString(36).toUpperCase()}`;
+    const fullOrder = {
+      ...orderData,
+      id: orderId,
+      status: 'pending_approval',
+      placedAt: new Date().toISOString(),
+    };
+    dispatch({ type: Actions.PLACE_ORDER, payload: fullOrder });
+    try {
+      if (isFirebaseConfigured) {
+        await saveOrderToFirestore(fullOrder);
+      }
+    } catch (err) {
+      console.warn('Failed to save order to Firestore:', err);
+    }
+    return fullOrder;
+  };
+
+  const updateOrderStatus = async (orderId, status) => {
+    dispatch({
+      type: Actions.UPDATE_ORDER_STATUS,
+      payload: { orderId, status },
+    });
+    try {
+      if (isFirebaseConfigured) {
+        await updateOrderStatusInFirestore(orderId, status);
+      }
+    } catch (err) {
+      console.warn('Failed to update order status in Firestore:', err);
+    }
+  };
+
   // Helper: cart totals
   const cartTotal = state.cart.reduce(
     (sum, item) => sum + item.price * item.quantity,
@@ -477,7 +525,11 @@ export function StoreProvider({ children }) {
   // Auth Helpers
   const currentUser = state.currentUser;
   const isLoggedIn = Boolean(currentUser && currentUser.role !== 'guest');
-  const isAdmin = Boolean(currentUser && currentUser.role === 'admin');
+  const isAdmin = Boolean(
+    currentUser &&
+    currentUser.role === 'admin' &&
+    currentUser.email?.toLowerCase() === ADMIN_EMAIL.toLowerCase()
+  );
   const isGuest = Boolean(currentUser && currentUser.role === 'guest');
 
   const value = {
@@ -499,6 +551,8 @@ export function StoreProvider({ children }) {
     addCustomerTestimonial,
     updateCustomerTestimonial,
     deleteCustomerTestimonial,
+    placeOrder,
+    updateOrderStatus,
   };
 
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>;

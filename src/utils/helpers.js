@@ -1,7 +1,7 @@
 // ============================================
 // CAKE MENU — Utility Helpers
 // ============================================
-import { OWNER_PHONE, DELIVERY_FEE, FREE_DELIVERY_ABOVE } from '../data/products';
+import { OWNER_PHONE } from '../data/products';
 
 /**
  * Format price in INR
@@ -11,10 +11,35 @@ export function formatPrice(amount) {
 }
 
 /**
- * Format date to readable string
+ * Parse any date representation safely into a Date object
  */
-export function formatDate(dateStr) {
-  const date = new Date(dateStr + 'T00:00:00');
+function parseDateSafely(input) {
+  if (!input) return null;
+
+  // 1. Firestore Timestamp instance with .toDate()
+  if (typeof input?.toDate === 'function') {
+    return input.toDate();
+  }
+  // 2. Firestore Timestamp raw object { seconds, nanoseconds }
+  if (typeof input?.seconds === 'number') {
+    return new Date(input.seconds * 1000);
+  }
+  // 3. String in YYYY-MM-DD format (prevent timezone day-shift by appending T00:00:00)
+  if (typeof input === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(input.trim())) {
+    return new Date(input.trim() + 'T00:00:00');
+  }
+  // 4. ISO string, timestamp number, or Date instance
+  const date = new Date(input);
+  return isNaN(date.getTime()) ? null : date;
+}
+
+/**
+ * Format date to readable string (e.g. "Sun, 6 Sept, 2026")
+ */
+export function formatDate(input) {
+  const date = parseDateSafely(input);
+  if (!date) return '—';
+
   return date.toLocaleDateString('en-IN', {
     weekday: 'short',
     day: 'numeric',
@@ -24,16 +49,26 @@ export function formatDate(dateStr) {
 }
 
 /**
- * Get delivery fee based on subtotal
+ * Format date and time for placed orders (e.g. "4 Sep 2026, 01:15 PM")
  */
-export function getDeliveryFee(subtotal) {
-  return subtotal >= FREE_DELIVERY_ABOVE ? 0 : DELIVERY_FEE;
+export function formatDateTime(input) {
+  const date = parseDateSafely(input);
+  if (!date) return '—';
+
+  return date.toLocaleString('en-IN', {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true,
+  });
 }
 
 /**
- * Calculate earliest delivery date based on lead time hours
+ * Calculate earliest pickup date based on lead time hours
  */
-export function getEarliestDelivery(leadTimeHours) {
+export function getEarliestPickup(leadTimeHours) {
   const now = new Date();
   const earliest = new Date(now.getTime() + leadTimeHours * 60 * 60 * 1000);
   // If it would be past 8PM (end of last slot), push to next day
@@ -79,36 +114,37 @@ export function getMaxLeadTime(cartItems, getProduct) {
  * Generate WhatsApp order message
  */
 export function generateWhatsAppMessage(order) {
-  const { items, customer, deliveryDate, timeSlot, subtotal, deliveryFee, total } = order;
+  const { items, customer, pickupDate, timeSlot, subtotal, total } = order;
 
-  let msg = `🎂 *NEW ORDER — Cake Menu*\n`;
+  let msg = `🎂 *NEW ORDER REQUEST — Cake Menu*\n`;
+  if (order.id) msg += `*Order ID:* #${order.id}\n`;
+  msg += `*Status:* ⏳ Pending Baker Approval\n`;
   msg += `━━━━━━━━━━━━━━━━━━━━━━\n\n`;
 
   items.forEach((item, i) => {
     msg += `*${i + 1}. ${item.name}*\n`;
     msg += `   Size: ${item.sizeName}\n`;
     if (item.flavor) msg += `   Flavor: ${item.flavor}\n`;
+    if (item.eggPreference) msg += `   Prep: ${item.eggPreference === 'Eggless' ? '🟢 Eggless' : '🥚 With Egg'}\n`;
     if (item.customMessage) msg += `   📝 Message: "${item.customMessage}"\n`;
     msg += `   Qty: ${item.quantity} × ${formatPrice(item.price)} = ${formatPrice(item.price * item.quantity)}\n\n`;
   });
 
   msg += `━━━━━━━━━━━━━━━━━━━━━━\n`;
-  msg += `Subtotal: ${formatPrice(subtotal)}\n`;
-  msg += `Delivery: ${deliveryFee === 0 ? 'FREE 🎉' : formatPrice(deliveryFee)}\n`;
   msg += `*Total: ${formatPrice(total)}*\n\n`;
 
-  msg += `📅 *Delivery Date:* ${formatDate(deliveryDate)}\n`;
+  msg += `📅 *Pickup Date:* ${formatDate(pickupDate)}\n`;
   msg += `🕐 *Time Slot:* ${timeSlot}\n\n`;
 
   msg += `👤 *Customer:* ${customer.name}\n`;
   msg += `📱 *Phone:* ${customer.phone}\n`;
-  msg += `📍 *Address:* ${customer.address}, Sirsi\n`;
 
   if (customer.notes) {
     msg += `\n📋 *Special Notes:* ${customer.notes}\n`;
   }
 
-  msg += `\n💳 *Payment:* Cash on Delivery\n`;
+  msg += `\n💳 *Payment:* Pay on Pickup\n`;
+  msg += `⏳ *Note:* Waiting for Priyanka's review & approval.\n`;
   msg += `━━━━━━━━━━━━━━━━━━━━━━\n`;
   msg += `_Thank you for ordering from Cake Menu!_ 🧁`;
 

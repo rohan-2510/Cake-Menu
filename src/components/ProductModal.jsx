@@ -5,22 +5,26 @@ import { useState, useMemo } from 'react';
 import { X, Star, Clock, ShoppingBag, Minus, Plus, AlertCircle } from 'lucide-react';
 import { SIZES } from '../data/products';
 import { useStore } from '../store/StoreContext';
-import { formatPrice, getEarliestDelivery, formatDate, toDateString } from '../utils/helpers';
+import { formatPrice, getEarliestPickup, formatDate, toDateString } from '../utils/helpers';
 import './ProductModal.css';
 
 export default function ProductModal({ product, onClose }) {
+  if (!product) return null;
+
   const { dispatch, Actions } = useStore();
+  const [imgError, setImgError] = useState(false);
 
   const tags = Array.isArray(product?.tags) ? product.tags : [];
   const flavors = Array.isArray(product?.flavors)
-    ? product.flavors
+    ? (product.flavors.length > 0 ? product.flavors : ['Standard'])
     : typeof product?.flavors === 'string' && product.flavors.trim()
-    ? product.flavors.split(',').map((f) => f.trim())
+    ? product.flavors.split(',').map((f) => f.trim()).filter(Boolean)
     : ['Standard'];
 
   const sizes = SIZES[product?.category] || SIZES.cakes;
-  const [selectedSize, setSelectedSize] = useState(sizes[0]);
+  const [selectedSize, setSelectedSize] = useState(sizes[0] || { id: 'std', label: 'Standard', serves: '1-2', multiplier: 1 });
   const [selectedFlavor, setSelectedFlavor] = useState(flavors[0] || 'Standard');
+  const [eggPreference, setEggPreference] = useState('Eggless');
   const [customMessage, setCustomMessage] = useState('');
   const [quantity, setQuantity] = useState(1);
   const [added, setAdded] = useState(false);
@@ -31,7 +35,7 @@ export default function ProductModal({ product, onClose }) {
 
   const totalPrice = currentPrice * quantity;
 
-  const earliest = getEarliestDelivery(product.leadTimeHours);
+  const earliest = getEarliestPickup(product?.leadTimeHours || 24);
   const earliestStr = formatDate(toDateString(earliest));
 
   const maxMessageLength = 60;
@@ -42,13 +46,15 @@ export default function ProductModal({ product, onClose }) {
       payload: {
         productId: product.id,
         name: product.name,
+        image: product.image,
         size: selectedSize.id,
         sizeName: selectedSize.label,
         flavor: selectedFlavor,
+        eggPreference,
         customMessage: customMessage.trim(),
         price: currentPrice,
-        leadTimeHours: product.leadTimeHours,
-        category: product.category,
+        leadTimeHours: product.leadTimeHours || 24,
+        category: product.category || 'cakes',
       },
     });
     dispatch({
@@ -60,7 +66,7 @@ export default function ProductModal({ product, onClose }) {
   };
 
   const getCategoryEmoji = () => {
-    switch (product.category) {
+    switch (product?.category) {
       case 'cakes': return '🎂';
       case 'cupcakes': return '🧁';
       case 'brownies': return '🍫';
@@ -80,9 +86,18 @@ export default function ProductModal({ product, onClose }) {
 
         {/* Image Area */}
         <div className="product-modal__image">
-          <div className="product-modal__image-bg">
-            <span className="product-modal__emoji">{getCategoryEmoji()}</span>
-          </div>
+          {product.image && !imgError ? (
+            <img
+              src={product.image}
+              alt={product.name}
+              className="product-modal__img"
+              onError={() => setImgError(true)}
+            />
+          ) : (
+            <div className="product-modal__image-bg">
+              <span className="product-modal__emoji">{getCategoryEmoji()}</span>
+            </div>
+          )}
         </div>
 
         {/* Content */}
@@ -90,9 +105,7 @@ export default function ProductModal({ product, onClose }) {
           {/* Header */}
           <div className="product-modal__header">
             <div className="product-modal__tags">
-              {tags.includes('veg') && (
-                <span className="badge badge--veg">🟢 100% Eggless</span>
-              )}
+              <span className="badge badge--veg">🟢 Eggless &amp; With-Egg Available</span>
               {tags.includes('bestseller') && (
                 <span className="badge badge--bestseller">⭐ Bestseller</span>
               )}
@@ -156,6 +169,27 @@ export default function ProductModal({ product, onClose }) {
             </div>
           )}
 
+          {/* Preparation Preference */}
+          <div className="product-modal__section">
+            <h3 className="product-modal__section-title">Preparation Preference</h3>
+            <div className="product-modal__flavors">
+              <button
+                type="button"
+                className={`product-modal__flavor-btn ${eggPreference === 'Eggless' ? 'active' : ''}`}
+                onClick={() => setEggPreference('Eggless')}
+              >
+                🟢 100% Eggless
+              </button>
+              <button
+                type="button"
+                className={`product-modal__flavor-btn ${eggPreference === 'With Egg' ? 'active' : ''}`}
+                onClick={() => setEggPreference('With Egg')}
+              >
+                🥚 With Egg
+              </button>
+            </div>
+          </div>
+
           {/* Custom Message */}
           {product.isCustomizable && (
             <div className="product-modal__section">
@@ -179,7 +213,7 @@ export default function ProductModal({ product, onClose }) {
           )}
 
           {/* Allergens */}
-          {product.allergens.length > 0 && (
+          {Array.isArray(product?.allergens) && product.allergens.length > 0 && (
             <div className="product-modal__allergens">
               <span className="product-modal__allergen-label">Contains:</span>
               {product.allergens.map((a) => (

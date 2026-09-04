@@ -21,7 +21,7 @@ import {
   deleteDoc,
   onSnapshot,
 } from 'firebase/firestore';
-import { PRODUCTS, TESTIMONIALS, ADMIN_EMAIL } from '../data/products';
+import { ADMIN_EMAIL } from '../data/products';
 
 // Firebase configuration from environment variables
 const rawApiKey = import.meta.env.VITE_FIREBASE_API_KEY || '';
@@ -249,51 +249,6 @@ export async function deleteMenuItem(itemId) {
   await deleteDoc(itemDocRef);
 }
 
-/**
- * Seed initial products into Firestore "menu" collection if empty
- */
-export async function seedMenuIfEmpty() {
-  if (!isFirebaseConfigured || !db) return;
-  try {
-    const menuCol = collection(db, 'menu');
-    const snap = await getDocs(menuCol);
-    if (snap.empty) {
-      console.log('Seeding initial menu items to Firestore...');
-      for (const product of PRODUCTS) {
-        const docRef = doc(db, 'menu', product.id);
-        await setDoc(docRef, { ...product, available: true });
-      }
-      console.log('Menu seeded successfully!');
-    }
-  } catch (err) {
-    console.warn('Seeding menu skipped or failed (check Security Rules):', err);
-  }
-}
-
-/**
- * Force seed all initial menu items & testimonials to Firestore (Admin trigger)
- */
-export async function forceSeedAllToFirestore() {
-  if (!isFirebaseConfigured || !db) {
-    throw new Error('Firebase credentials not configured in .env file.');
-  }
-
-  // 1. Seed Menu
-  for (const product of PRODUCTS) {
-    const docRef = doc(db, 'menu', product.id);
-    await setDoc(docRef, { ...product, available: true });
-  }
-
-  // 2. Seed Testimonials
-  for (let i = 0; i < TESTIMONIALS.length; i++) {
-    const item = TESTIMONIALS[i];
-    const docRef = doc(db, 'testimonials', `test_seed_${i + 1}`);
-    await setDoc(docRef, { ...item, id: `test_seed_${i + 1}`, visible: true });
-  }
-
-  return { menuCount: PRODUCTS.length, testimonialsCount: TESTIMONIALS.length };
-}
-
 // ============================================
 // 3. TESTIMONIALS SERVICES
 // ============================================
@@ -363,28 +318,6 @@ export async function deleteTestimonial(testimonialId) {
   await deleteDoc(docRef);
 }
 
-/**
- * Seed initial testimonials to Firestore if empty
- */
-export async function seedTestimonialsIfEmpty() {
-  if (!isFirebaseConfigured || !db) return;
-  try {
-    const testCol = collection(db, 'testimonials');
-    const snap = await getDocs(testCol);
-    if (snap.empty) {
-      console.log('Seeding initial testimonials to Firestore...');
-      for (let i = 0; i < TESTIMONIALS.length; i++) {
-        const item = TESTIMONIALS[i];
-        const docRef = doc(db, 'testimonials', `test_seed_${i + 1}`);
-        await setDoc(docRef, { ...item, id: `test_seed_${i + 1}`, visible: true });
-      }
-      console.log('Testimonials seeded successfully!');
-    }
-  } catch (err) {
-    console.warn('Seeding testimonials skipped or failed (check Security Rules):', err);
-  }
-}
-
 // ============================================
 // 4. ORDERS SERVICES
 // ============================================
@@ -440,5 +373,51 @@ export async function updateOrderStatusInFirestore(orderId, status) {
     await updateDoc(docRef, { status });
   } catch (err) {
     console.warn('Could not update order status in Firestore:', err);
+  }
+}
+
+/**
+ * Subscribe to a single order for real-time tracking
+ */
+export function subscribeSingleOrder(orderId, onUpdate, onError) {
+  if (!isFirebaseConfigured || !db || !orderId) return () => {};
+
+  try {
+    const docRef = doc(db, 'orders', orderId);
+    return onSnapshot(
+      docRef,
+      (docSnap) => {
+        if (docSnap.exists()) {
+          onUpdate({ id: docSnap.id, ...docSnap.data() });
+        } else {
+          onUpdate(null);
+        }
+      },
+      (err) => {
+        console.warn(`Firestore real-time tracking error for ${orderId}:`, err);
+        if (onError) onError(err);
+      }
+    );
+  } catch (e) {
+    console.warn('Real-time order subscription failed:', e);
+    return () => {};
+  }
+}
+
+/**
+ * Fetch a single order by ID from Firestore
+ */
+export async function fetchOrderById(orderId) {
+  if (!isFirebaseConfigured || !db || !orderId) return null;
+  try {
+    const docRef = doc(db, 'orders', orderId);
+    const snap = await getDoc(docRef);
+    if (snap.exists()) {
+      return { id: snap.id, ...snap.data() };
+    }
+    return null;
+  } catch (err) {
+    console.warn(`Could not fetch order ${orderId} from Firestore:`, err);
+    return null;
   }
 }

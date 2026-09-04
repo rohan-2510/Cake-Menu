@@ -8,6 +8,7 @@ import ProductCard from '../components/ProductCard';
 import ProductModal from '../components/ProductModal';
 import Testimonials from '../components/Testimonials';
 import { useStore } from '../store/StoreContext';
+import { WhatsAppIcon } from '../components/icons/SocialIcons';
 import { CATEGORIES, ALLERGEN_INFO } from '../data/products';
 import './HomePage.css';
 
@@ -25,25 +26,27 @@ export default function HomePage() {
       <Hero />
 
       {/* Bestsellers */}
-      <section className="section bestsellers" id="bestsellers">
-        <div className="container">
-          <div className="section-header">
-            <span className="accent-line font-accent">crowd favorites</span>
-            <h2 className="font-display">Our Bestsellers</h2>
-            <p>The most loved treats from our kitchen</p>
-          </div>
+      {bestsellers.length > 0 && (
+        <section className="section bestsellers" id="bestsellers">
+          <div className="container">
+            <div className="section-header">
+              <span className="accent-line font-accent">crowd favorites</span>
+              <h2 className="font-display">Our Bestsellers</h2>
+              <p>The most loved treats from our kitchen</p>
+            </div>
 
-          <div className="bestsellers__grid">
-            {bestsellers.slice(0, 4).map((product) => (
-              <ProductCard
-                key={product.id}
-                product={product}
-                onQuickView={setSelectedProduct}
-              />
-            ))}
+            <div className="bestsellers__grid">
+              {bestsellers.slice(0, 4).map((product) => (
+                <ProductCard
+                  key={product.id}
+                  product={product}
+                  onQuickView={setSelectedProduct}
+                />
+              ))}
+            </div>
           </div>
-        </div>
-      </section>
+        </section>
+      )}
 
       {/* Full Menu */}
       <section className="section menu" id="menu">
@@ -51,7 +54,7 @@ export default function HomePage() {
           <div className="section-header">
             <span className="accent-line font-accent">explore our treats</span>
             <h2 className="font-display">Our Menu</h2>
-            <p>Every item is 100% eggless, freshly baked with premium ingredients</p>
+            <p>Available in both Eggless &amp; With-Egg options, freshly baked with premium ingredients</p>
           </div>
 
           {/* Category Tabs */}
@@ -109,7 +112,7 @@ export default function HomePage() {
                 <span>👩‍🍳</span>
               </div>
               <div className="about__text">
-                <h3 className="font-display">Baking Dreams Since 2020</h3>
+                <h3 className="font-display">Baking Dreams Since 2026</h3>
                 <p>
                   What started as a passion project in my Sirsi kitchen has grown into
                   a beloved local bakery. Every cake I bake is crafted with the finest ingredients,
@@ -117,8 +120,8 @@ export default function HomePage() {
                 </p>
                 <p>
                   I believe everyone deserves a beautiful, delicious cake for their special moments —
-                  birthdays, anniversaries, festivals, or just because! All my products are
-                  <strong> 100% eggless and vegetarian</strong>, because taste should never compromise beliefs.
+                  birthdays, anniversaries, festivals, or just because! We offer both
+                  <strong> eggless and egg-based options</strong> to suit everyone's preferences.
                 </p>
               </div>
             </div>
@@ -126,18 +129,13 @@ export default function HomePage() {
             <div className="about__values">
               <div className="about__value-card">
                 <Leaf size={24} />
-                <h4>100% Eggless</h4>
-                <p>Every single product is purely vegetarian</p>
+                <h4>Eggless &amp; With-Egg</h4>
+                <p>Choose between eggless or with-egg preparations</p>
               </div>
               <div className="about__value-card">
                 <ChefHat size={24} />
                 <h4>Freshly Baked</h4>
                 <p>Made to order, never pre-made or frozen</p>
-              </div>
-              <div className="about__value-card">
-                <Shield size={24} />
-                <h4>FSSAI Licensed</h4>
-                <p>Hygienic kitchen, certified food safety</p>
               </div>
               <div className="about__value-card">
                 <Sparkles size={24} />
@@ -185,8 +183,9 @@ export default function HomePage() {
         className="floating-wa"
         id="floating-whatsapp"
         aria-label="Chat on WhatsApp"
+        title="Chat on WhatsApp"
       >
-        💬
+        <WhatsAppIcon size={28} color="#FFFFFF" />
       </a>
     </div>
   );

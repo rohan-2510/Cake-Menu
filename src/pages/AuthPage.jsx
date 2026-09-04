@@ -194,7 +194,7 @@ export default function AuthPage({ onClose, isModal = false }) {
             <Cake size={32} className="auth-logo-icon" />
           </div>
           <h1 className="font-display auth-title">{SHOP_NAME}</h1>
-          <p className="auth-subtitle font-accent">Handcrafted Eggless Boutique Bakery</p>
+          <p className="auth-subtitle font-accent">Handcrafted Artisanal Boutique Bakery</p>
         </div>
 
         {/* Auth Mode Tabs */}
@@ -280,7 +280,7 @@ export default function AuthPage({ onClose, isModal = false }) {
           <form className="auth-form" onSubmit={handleRegister}>
             <div className="auth-form-intro">
               <h3>Create Customer Account</h3>
-              <p>Save delivery addresses & order handcrafted cakes quickly</p>
+              <p>Order handcrafted cakes & schedule pickup quickly</p>
             </div>
 
             <div className="form-group">
