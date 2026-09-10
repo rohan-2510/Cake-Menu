@@ -8,6 +8,7 @@ import {
   subscribeMenu,
   subscribeTestimonials,
   subscribeOrders,
+  subscribeCustomerOrders,
   addMenuItem as fbAddMenuItem,
   updateMenuItem as fbUpdateMenuItem,
   deleteMenuItem as fbDeleteMenuItem,
@@ -29,12 +30,42 @@ const getStoredState = (key, fallback) => {
   }
 };
 
+const getStoredCancelledOrders = () => {
+  try {
+    const stored = localStorage.getItem('cakeMenu_cancelledOrders');
+    return stored ? JSON.parse(stored) : {};
+  } catch {
+    return {};
+  }
+};
+
+const mergeCancelledIntoOrders = (ordersList, cancelledRegistry) => {
+  if (!ordersList || !Array.isArray(ordersList)) return [];
+  const registry = cancelledRegistry || {};
+  return ordersList.map((ord) => {
+    const cancelInfo = registry[ord.id];
+    if (cancelInfo) {
+      return {
+        ...ord,
+        status: 'cancelled',
+        cancelledBy: cancelInfo.cancelledBy || 'customer',
+        cancelledAt: cancelInfo.cancelledAt || ord.cancelledAt || new Date().toISOString(),
+        cancelReason: cancelInfo.cancelReason || ord.cancelReason || 'Cancelled by customer before approval',
+      };
+    }
+    return {
+      ...ord,
+      status: normalizeOrderStatus(ord.status),
+    };
+  });
+};
+
+const initialCancelledOrders = getStoredCancelledOrders();
+
 const initialState = {
   cart: getStoredState('cart', []),
-  orders: getStoredState('orders', []).map((o) => ({
-    ...o,
-    status: normalizeOrderStatus(o.status),
-  })),
+  cancelledOrders: initialCancelledOrders,
+  orders: mergeCancelledIntoOrders(getStoredState('orders', []), initialCancelledOrders),
   menuItems: getStoredState('menuItems', []),
   testimonials: getStoredState('testimonials', []),
   blockedDates: getStoredState('blockedDates', []),
@@ -81,10 +112,7 @@ function storeReducer(state, action) {
     case Actions.SET_ORDERS:
       return {
         ...state,
-        orders: (action.payload || []).map((o) => ({
-          ...o,
-          status: normalizeOrderStatus(o.status),
-        })),
+        orders: mergeCancelledIntoOrders(action.payload || [], state.cancelledOrders),
       };
 
     case Actions.ADD_TO_CART: {
@@ -151,15 +179,30 @@ function storeReducer(state, action) {
       };
     }
 
-    case Actions.UPDATE_ORDER_STATUS:
+    case Actions.UPDATE_ORDER_STATUS: {
+      const isCustomerCancellation =
+        action.payload.status === 'cancelled' && action.payload.cancelledBy === 'customer';
+      const updatedCancelled = isCustomerCancellation
+        ? {
+            ...state.cancelledOrders,
+            [action.payload.orderId]: {
+              cancelledBy: 'customer',
+              cancelledAt: action.payload.cancelledAt || new Date().toISOString(),
+              cancelReason: action.payload.cancelReason || 'Cancelled by customer before approval',
+            },
+          }
+        : state.cancelledOrders;
+
       return {
         ...state,
+        cancelledOrders: updatedCancelled,
         orders: state.orders.map((order) =>
           order.id === action.payload.orderId
-            ? { ...order, status: action.payload.status }
+            ? { ...order, ...action.payload }
             : order
         ),
       };
+    }
 
     case Actions.TOGGLE_DATE_BLOCK: {
       const date = action.payload;
@@ -312,6 +355,18 @@ export function StoreProvider({ children }) {
     }
   }, [state.currentUser?.role]);
 
+  // 5. Real-time Firestore Orders Sync for Customer (active when customer is logged in)
+  useEffect(() => {
+    if (state.currentUser && state.currentUser.role === 'customer') {
+      const unsubscribe = subscribeCustomerOrders(state.currentUser, (orders) => {
+        if (orders) {
+          dispatch({ type: Actions.SET_ORDERS, payload: orders });
+        }
+      });
+      return () => unsubscribe();
+    }
+  }, [state.currentUser?.email, state.currentUser?.phone, state.currentUser?.uid, state.currentUser?.id, state.currentUser?.role]);
+
   // Local Storage Persistence
   useEffect(() => {
     localStorage.setItem('cakeMenu_menuItems', JSON.stringify(state.menuItems));
@@ -328,6 +383,10 @@ export function StoreProvider({ children }) {
   useEffect(() => {
     localStorage.setItem('cakeMenu_orders', JSON.stringify(state.orders));
   }, [state.orders]);
+
+  useEffect(() => {
+    localStorage.setItem('cakeMenu_cancelledOrders', JSON.stringify(state.cancelledOrders || {}));
+  }, [state.cancelledOrders]);
 
   useEffect(() => {
     localStorage.setItem('cakeMenu_blockedDates', JSON.stringify(state.blockedDates));
@@ -355,11 +414,10 @@ export function StoreProvider({ children }) {
 
   // Helper: get product with overrides applied (reads from live menuItems)
   const getProduct = useCallback(
-    (productId) => {
-      const product = (state.menuItems || []).find((p) => p.id === productId);
-      if (!product) return null;
-      const overrides = state.productOverrides[productId] || {};
-      return { ...product, ...overrides };
+    (id) => {
+      const base = (state.menuItems || []).find((p) => p.id === id);
+      if (!base) return null;
+      return { ...base, ...(state.productOverrides[id] || {}) };
     },
     [state.menuItems, state.productOverrides]
   );
@@ -380,7 +438,7 @@ export function StoreProvider({ children }) {
     (dateStr) => {
       if (state.blockedDates.includes(dateStr)) return false;
       const ordersOnDate = state.orders.filter(
-        (o) => (o.pickupDate || o.deliveryDate) === dateStr && o.status !== 'picked_up'
+        (o) => (o.pickupDate || o.deliveryDate) === dateStr && o.status !== 'picked_up' && o.status !== 'cancelled'
       );
       return ordersOnDate.length < state.maxOrdersPerDay;
     },
@@ -475,7 +533,7 @@ export function StoreProvider({ children }) {
           payload: state.testimonials.filter((t) => t.id !== id),
         });
       }
-      dispatch({ type: Actions.SET_TOAST, payload: '🗑️ Review deleted!' });
+      dispatch({ type: Actions.SET_TOAST, payload: '🗑️ Review removed!' });
     } catch (err) {
       dispatch({ type: Actions.SET_TOAST, payload: `❌ Failed to delete review: ${err.message}` });
     }
@@ -501,18 +559,36 @@ export function StoreProvider({ children }) {
     return fullOrder;
   };
 
-  const updateOrderStatus = async (orderId, status) => {
+  const updateOrderStatus = async (orderId, status, extraFields = {}) => {
+    // Edge case: If an order was cancelled by the customer, prevent approving it under all circumstances
+    const isCancelledByCustomer =
+      Boolean(state.cancelledOrders?.[orderId]) ||
+      Boolean(getStoredCancelledOrders()[orderId]) ||
+      state.orders.some(
+        (o) => o.id === orderId && (o.status === 'cancelled' || o.cancelledBy === 'customer')
+      );
+
+    if (isCancelledByCustomer && status !== 'cancelled') {
+      dispatch({
+        type: Actions.SET_TOAST,
+        payload: `⚠️ Order #${orderId} was cancelled by the customer and cannot be approved.`,
+      });
+      return false;
+    }
+
+    const payload = { orderId, status, ...extraFields };
     dispatch({
       type: Actions.UPDATE_ORDER_STATUS,
-      payload: { orderId, status },
+      payload,
     });
     try {
       if (isFirebaseConfigured) {
-        await updateOrderStatusInFirestore(orderId, status);
+        await updateOrderStatusInFirestore(orderId, status, extraFields);
       }
     } catch (err) {
       console.warn('Failed to update order status in Firestore:', err);
     }
+    return true;
   };
 
   // Helper: cart totals
@@ -531,6 +607,39 @@ export function StoreProvider({ children }) {
     currentUser.email?.toLowerCase() === ADMIN_EMAIL.toLowerCase()
   );
   const isGuest = Boolean(currentUser && currentUser.role === 'guest');
+
+  const cancelOrder = async (orderId, reason = '') => {
+    const existingOrder = state.orders.find((o) => o.id === orderId);
+    // Edge case: Customer can only cancel UNTIL it gets approved
+    if (existingOrder && existingOrder.status !== 'pending_approval' && existingOrder.status !== 'cancelled') {
+      dispatch({
+        type: Actions.SET_TOAST,
+        payload: `⚠️ Cannot cancel order #${orderId}: This order has already been approved by Priyanka!`,
+      });
+      return false;
+    }
+
+    const cancelInfo = {
+      cancelledBy: 'customer',
+      cancelledAt: new Date().toISOString(),
+      cancelReason: reason || 'Cancelled by customer before approval',
+    };
+
+    // Immediately persist to local cancelled registry for bulletproof offline & sync protection
+    try {
+      const stored = getStoredCancelledOrders();
+      stored[orderId] = cancelInfo;
+      localStorage.setItem('cakeMenu_cancelledOrders', JSON.stringify(stored));
+    } catch {
+      // ignore
+    }
+
+    const success = await updateOrderStatus(orderId, 'cancelled', cancelInfo);
+    if (success) {
+      dispatch({ type: Actions.SET_TOAST, payload: '❌ Order cancelled successfully' });
+    }
+    return success;
+  };
 
   const value = {
     state,
@@ -553,6 +662,7 @@ export function StoreProvider({ children }) {
     deleteCustomerTestimonial,
     placeOrder,
     updateOrderStatus,
+    cancelOrder,
   };
 
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>;

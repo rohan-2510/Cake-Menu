@@ -1,18 +1,23 @@
 // ============================================
 // TrackOrderPage — Live Customer Order Tracking
 // ============================================
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import {
   Search, Package, Clock, CheckCircle2, MapPin, Phone,
   Copy, Check, ArrowLeft, RefreshCw,
-  ShoppingBag, ChefHat, Sparkles
+  ShoppingBag, ChefHat, XCircle
 } from 'lucide-react';
 import { WhatsAppIcon } from '../components/icons/SocialIcons';
 import { useStore } from '../store/StoreContext';
 import { ORDER_STATUSES, OWNER_PHONE, OWNER_NAME, SHOP_LOCATION, normalizeOrderStatus } from '../data/products';
 import { formatPrice, formatDate, formatDateTime } from '../utils/helpers';
-import { subscribeSingleOrder, fetchOrderById, isFirebaseConfigured } from '../services/firebase';
+import {
+  subscribeSingleOrder,
+  fetchOrderById,
+  fetchCustomerOrders,
+  isFirebaseConfigured,
+} from '../services/firebase';
 import './TrackOrderPage.css';
 
 const TRACKING_STEPS = [
@@ -56,7 +61,7 @@ const TRACKING_STEPS = [
 export default function TrackOrderPage() {
   const { orderId: urlOrderId } = useParams();
   const navigate = useNavigate();
-  const { state, dispatch, Actions, isAdmin } = useStore();
+  const { state, dispatch, Actions, isAdmin, isGuest, isLoggedIn, currentUser, cancelOrder } = useStore();
 
   // Redirect admin users directly to Admin Dashboard
   useEffect(() => {
@@ -65,26 +70,108 @@ export default function TrackOrderPage() {
     }
   }, [isAdmin, navigate]);
 
+  // Redirect guests — they can't place orders, so Track Order is not applicable
+  useEffect(() => {
+    if (isGuest || !currentUser) {
+      navigate('/', { replace: true });
+    }
+  }, [isGuest, currentUser, navigate]);
+
   const [searchQuery, setSearchQuery] = useState(urlOrderId || '');
   const [currentOrder, setCurrentOrder] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
   const [copied, setCopied] = useState(false);
   const [notFound, setNotFound] = useState(false);
+  const [showSearch, setShowSearch] = useState(Boolean(urlOrderId));
+  const [showCancelModal, setShowCancelModal] = useState(false);
+  const [isCancelling, setIsCancelling] = useState(false);
 
-  // Helper: Find order in local state first
-  const findLocalOrder = (query) => {
+  // Cancel order handler (available until order is approved)
+  const handleCancelOrder = async () => {
+    if (!currentOrder?.id) return;
+    setIsCancelling(true);
+    try {
+      const success = await cancelOrder(currentOrder.id);
+      if (success) {
+        setCurrentOrder((prev) => (prev ? {
+          ...prev,
+          status: 'cancelled',
+          cancelledBy: 'customer',
+          cancelledAt: new Date().toISOString()
+        } : null));
+      }
+      setShowCancelModal(false);
+    } catch (err) {
+      console.error('Failed to cancel order:', err);
+    } finally {
+      setIsCancelling(false);
+    }
+  };
+
+  // Compute all orders belonging to the currently logged in customer
+  const customerOrders = useMemo(() => {
+    if (!currentUser) return [];
+    const targetEmail = (currentUser.email || '').trim().toLowerCase();
+    const targetPhone = (currentUser.phone || '').replace(/\D/g, '');
+    const targetUid = currentUser.uid || currentUser.id;
+
+    return (state.orders || [])
+      .filter((o) => {
+        const oEmail = (o.customer?.email || '').trim().toLowerCase();
+        const oPhone = (o.customer?.phone || '').replace(/\D/g, '');
+        const oUid = o.userId || o.customer?.uid;
+        return (
+          (targetEmail && oEmail && oEmail === targetEmail) ||
+          (targetPhone && oPhone && targetPhone.length >= 10 && oPhone === targetPhone) ||
+          (targetUid && oUid && oUid === targetUid)
+        );
+      })
+      .sort((a, b) => new Date(b.placedAt || b.createdAt || 0) - new Date(a.placedAt || a.createdAt || 0));
+  }, [state.orders, currentUser]);
+
+  // On mount, ensure customer orders are fetched from Firestore into state
+  useEffect(() => {
+    if (currentUser && isFirebaseConfigured) {
+      fetchCustomerOrders(currentUser).then((remoteOrders) => {
+        if (remoteOrders && remoteOrders.length > 0) {
+          const existingIds = new Set((state.orders || []).map((o) => o.id));
+          const newOrders = remoteOrders.filter((o) => !existingIds.has(o.id));
+          if (newOrders.length > 0) {
+            dispatch({
+              type: Actions.SET_ORDERS,
+              payload: [...(state.orders || []), ...newOrders],
+            });
+          }
+        }
+      });
+    }
+  }, [currentUser]);
+
+  // Auto-select the customer's latest order if no specific order is in URL
+  useEffect(() => {
+    if (!urlOrderId && customerOrders.length > 0) {
+      if (!currentOrder || !customerOrders.some((o) => o.id === currentOrder.id)) {
+        setCurrentOrder(customerOrders[0]);
+      } else {
+        const synced = customerOrders.find((o) => o.id === currentOrder.id);
+        if (synced && synced.status !== currentOrder.status) {
+          setCurrentOrder(synced);
+        }
+      }
+    }
+  }, [customerOrders, urlOrderId, currentOrder]);
+
+  // Helper: Find order in local customer orders
+  const findCustomerOrder = (query) => {
     if (!query) return null;
     const clean = query.trim().toUpperCase().replace('#', '');
-    const cleanPhone = query.replace(/\D/g, '');
 
-    return (state.orders || []).find((o) => {
+    return customerOrders.find((o) => {
       const oId = (o.id || '').toUpperCase().replace('#', '');
-      const oPhone = (o.customer?.phone || '').replace(/\D/g, '');
       return (
         oId === clean ||
         oId === `ORD-${clean}` ||
-        `ORD-${oId}` === clean ||
-        (cleanPhone.length >= 10 && oPhone === cleanPhone)
+        `ORD-${oId}` === clean
       );
     });
   };
@@ -97,11 +184,12 @@ export default function TrackOrderPage() {
     setIsLoading(true);
     setNotFound(false);
 
-    // 1. Check local state orders first
-    const localMatch = findLocalOrder(q);
-    if (localMatch) {
-      setCurrentOrder(localMatch);
+    // 1. Check customer's orders first
+    const match = findCustomerOrder(q);
+    if (match) {
+      setCurrentOrder(match);
       setIsLoading(false);
+      return;
     }
 
     // 2. Fetch from Firestore if available
@@ -114,16 +202,14 @@ export default function TrackOrderPage() {
         if (remoteOrder) {
           setCurrentOrder(remoteOrder);
           setNotFound(false);
-        } else if (!localMatch) {
+        } else {
           setNotFound(true);
           setCurrentOrder(null);
         }
       } catch (err) {
-        if (!localMatch) {
-          setNotFound(true);
-        }
+        setNotFound(true);
       }
-    } else if (!localMatch) {
+    } else {
       setNotFound(true);
       setCurrentOrder(null);
     }
@@ -165,6 +251,12 @@ export default function TrackOrderPage() {
     lookupOrder(searchQuery);
   };
 
+  const handleSelectOrder = (ord) => {
+    setCurrentOrder(ord);
+    setNotFound(false);
+    navigate(`/track/${ord.id}`, { replace: true });
+  };
+
   const copyOrderId = () => {
     if (!currentOrder) return;
     navigator.clipboard.writeText(currentOrder.id);
@@ -198,9 +290,6 @@ export default function TrackOrderPage() {
     return `https://wa.me/${OWNER_PHONE}?text=${text}`;
   };
 
-  // Recent local orders
-  const myRecentOrders = (state.orders || []).slice(0, 5);
-
   return (
     <div className="track-page" id="track-page">
       <div className="container track-page__container">
@@ -210,36 +299,64 @@ export default function TrackOrderPage() {
             <ArrowLeft size={16} />
             Back to Menu
           </Link>
-          <h1 className="font-display">Track Your Order</h1>
+          <h1 className="font-display">Track Your Orders</h1>
           <p>Check the live preparation and pickup status of your handcrafted cake</p>
         </div>
 
-        {/* Lookup Search Bar */}
-        <div className="track-search-card">
-          <form onSubmit={handleSearchSubmit} className="track-search-form">
-            <div className="track-search-input-wrap">
-              <Search size={20} className="track-search-icon" />
-              <input
-                type="text"
-                className="input-field track-search-input"
-                placeholder="Enter Order ID (e.g. ORD-MTMN5LF3) or Phone"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                required
-              />
+        {/* Customer Orders Selector: Shown automatically if customer has multiple orders */}
+        {customerOrders.length > 1 && (
+          <div className="track-orders-selector animate-fade-in-up">
+            <div className="track-orders-selector__header">
+              <h3 className="track-orders-selector__title">
+                <Package size={18} />
+                Your Placed Orders ({customerOrders.length})
+              </h3>
             </div>
-            <button type="submit" className="btn btn--primary" disabled={isLoading}>
-              {isLoading ? (
-                <>
-                  <RefreshCw size={16} className="animate-spin" />
-                  Searching...
-                </>
-              ) : (
-                'Track Order'
-              )}
-            </button>
-          </form>
-        </div>
+            <div className="track-orders-grid">
+              {customerOrders.map((ord) => {
+                const ordStatus = normalizeOrderStatus(ord.status);
+                const statusObj = ORDER_STATUSES.find((s) => s.id === ordStatus);
+                const isSelected = currentOrder?.id === ord.id;
+                return (
+                  <button
+                    key={ord.id}
+                    type="button"
+                    className={`track-order-card ${isSelected ? 'active' : ''}`}
+                    onClick={() => handleSelectOrder(ord)}
+                  >
+                    <div className="track-order-card__top">
+                      <span className="track-order-card__id">#{ord.id}</span>
+                      <span className={`badge badge--status-${ordStatus} track-order-card__badge`}>
+                        {statusObj?.icon || '⏳'} {statusObj?.shortLabel || statusObj?.label || ordStatus}
+                      </span>
+                    </div>
+                    <div className="track-order-card__desc">
+                      {ord.items?.map((it) => `${it.name} (${it.quantity})`).join(', ')}
+                    </div>
+                    <div className="track-order-card__bottom">
+                      <span>📅 {formatDate(ord.pickupDate || ord.deliveryDate)}</span>
+                      <strong className="font-display">{formatPrice(ord.total)}</strong>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* Empty State: Shown if customer has not placed any orders yet */}
+        {customerOrders.length === 0 && !currentOrder && !isLoading && !notFound && (
+          <div className="track-empty-state animate-fade-in-up">
+            <span className="track-empty-state__icon">🎂</span>
+            <h2>No Orders Placed Yet</h2>
+            <p>
+              You haven't placed any cake orders yet with your account. Once you order from our delicious menu, you can track the approval, baking, and pickup status right here in real time!
+            </p>
+            <Link to="/" className="btn btn--primary btn--lg">
+              Browse Cake Menu & Order
+            </Link>
+          </div>
+        )}
 
         {/* Not Found State */}
         {notFound && (
@@ -248,12 +365,12 @@ export default function TrackOrderPage() {
             <h3>Order Not Found</h3>
             <p>
               We couldn't find an order matching "<strong>{searchQuery}</strong>".
-              Please double check the ID from your confirmation message or enter your WhatsApp number.
+              Please double check the ID from your confirmation message.
             </p>
           </div>
         )}
 
-        {/* Active Order Card */}
+        {/* Active Order Card: Automatically displayed without needing to search */}
         {currentOrder && (
           <div className="track-card animate-fade-in-up">
             {/* Top Bar */}
@@ -272,6 +389,18 @@ export default function TrackOrderPage() {
               </div>
 
               <div className="track-card__meta">
+                {currentStatus === 'pending_approval' && (
+                  <button
+                    type="button"
+                    className="btn btn--outline-danger btn--sm"
+                    onClick={() => setShowCancelModal(true)}
+                    title="Cancel this order before baker approval"
+                    style={{ display: 'inline-flex', alignItems: 'center', gap: '5px' }}
+                  >
+                    <XCircle size={13} />
+                    <span>Cancel Order</span>
+                  </button>
+                )}
                 <span className="track-card__live-pill">
                   <span className="track-card__live-dot" />
                   Live Status
@@ -285,14 +414,23 @@ export default function TrackOrderPage() {
             {/* Current Status Banner */}
             {currentStatus === 'cancelled' ? (
               <div className="track-status-banner track-status-banner--cancelled">
-                <div className="track-status-banner__icon">❌</div>
+                <div className="track-status-banner__icon">
+                  {currentOrder.cancelledBy === 'customer' ? '🚫' : '❌'}
+                </div>
                 <div>
                   <h2 className="track-status-banner__title font-display">
-                    Order Declined
+                    {currentOrder.cancelledBy === 'customer' ? 'Order Cancelled by You' : 'Order Declined by Baker'}
                   </h2>
                   <p className="track-status-banner__desc">
-                    Unfortunately, Priyanka was unable to approve this order (the requested pickup slot or schedule is full). Please contact Priyanka on WhatsApp to arrange a convenient alternate time.
+                    {currentOrder.cancelledBy === 'customer'
+                      ? 'You have cancelled this order before baker approval. No charges were made, and no baking will take place.'
+                      : 'Unfortunately, this order request could not be accepted for the requested date/time. If you would like to reschedule or request another slot, please feel free to place a new order or chat with Priyanka on WhatsApp.'}
                   </p>
+                  {currentOrder.cancelledAt && (
+                    <span style={{ display: 'inline-block', marginTop: '0.45rem', fontSize: '0.82rem', color: '#991B1B', fontWeight: 500 }}>
+                      🕒 Cancelled on: {formatDateTime(currentOrder.cancelledAt)}
+                    </span>
+                  )}
                 </div>
               </div>
             ) : (
@@ -314,44 +452,58 @@ export default function TrackOrderPage() {
             {currentStatus === 'pending_approval' && (
               <div className="track-approval-notice">
                 <span className="track-approval-notice__icon">⏳</span>
-                <div>
+                <div style={{ flex: 1 }}>
                   <strong>Order is waiting for Priyanka's approval</strong>
                   <p>Priyanka bakes every cake fresh to order. She will verify kitchen capacity and approve your pickup slot shortly. This page will update live in real-time as soon as approved!</p>
+                  <p style={{ marginTop: '0.45rem', fontSize: '0.825rem', color: '#8D6E63' }}>
+                    Need to change your plans? You can cancel this order anytime until it gets approved.
+                  </p>
                 </div>
+                <button
+                  type="button"
+                  className="btn btn--outline-danger btn--sm"
+                  onClick={() => setShowCancelModal(true)}
+                  style={{ alignSelf: 'center', whiteSpace: 'nowrap', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+                >
+                  <XCircle size={14} />
+                  <span>Cancel Order</span>
+                </button>
               </div>
             )}
 
-            {/* Visual Step Progress Tracker */}
-            <div className="track-stepper-wrap">
-              <div className="track-stepper-progress-bg">
-                <div
-                  className="track-stepper-progress-fill"
-                  style={{ width: `${progressPercent}%` }}
-                />
-              </div>
+            {/* Visual Step Progress Tracker (Only shown for active non-cancelled orders) */}
+            {currentStatus !== 'cancelled' && (
+              <div className="track-stepper-wrap">
+                <div className="track-stepper-progress-bg">
+                  <div
+                    className="track-stepper-progress-fill"
+                    style={{ width: `${progressPercent}%` }}
+                  />
+                </div>
 
-              <div className="track-stepper">
-                {TRACKING_STEPS.map((step, idx) => {
-                  const status = getStepStatus(idx);
-                  return (
-                    <div className={`track-step track-step--${status}`} key={step.id}>
-                      <div className="track-step__node">
-                        {status === 'completed' ? (
-                          <CheckCircle2 size={20} />
-                        ) : (
-                          <span className="track-step__emoji">{step.icon}</span>
-                        )}
-                        {status === 'active' && <span className="track-step__pulse" />}
+                <div className="track-stepper">
+                  {TRACKING_STEPS.map((step, idx) => {
+                    const status = getStepStatus(idx);
+                    return (
+                      <div className={`track-step track-step--${status}`} key={step.id}>
+                        <div className="track-step__node">
+                          {status === 'completed' ? (
+                            <CheckCircle2 size={20} />
+                          ) : (
+                            <span className="track-step__emoji">{step.icon}</span>
+                          )}
+                          {status === 'active' && <span className="track-step__pulse" />}
+                        </div>
+                        <div className="track-step__info">
+                          <span className="track-step__label">{step.title}</span>
+                          <span className="track-step__sub">{step.subtitle}</span>
+                        </div>
                       </div>
-                      <div className="track-step__info">
-                        <span className="track-step__label">{step.title}</span>
-                        <span className="track-step__sub">{step.subtitle}</span>
-                      </div>
-                    </div>
-                  );
-                })}
+                    );
+                  })}
+                </div>
               </div>
-            </div>
+            )}
 
             {/* Pickup & Order Information */}
             <div className="track-grid">
@@ -476,45 +628,72 @@ export default function TrackOrderPage() {
           </div>
         )}
 
-        {/* Recent Orders on This Device */}
-        {myRecentOrders.length > 0 && (
-          <div className="track-recent-section">
-            <h3 className="track-recent-section__title font-display">
-              Recent Orders on this Device
-            </h3>
-            <div className="track-recent-grid">
-              {myRecentOrders.map((ord) => {
-                const ordStatus = normalizeOrderStatus(ord.status);
-                const statusObj = ORDER_STATUSES.find((s) => s.id === ordStatus);
-                const isSelected = currentOrder?.id === ord.id;
-                return (
-                  <button
-                    key={ord.id}
-                    type="button"
-                    className={`track-recent-card ${isSelected ? 'active' : ''}`}
-                    onClick={() => {
-                      setSearchQuery(ord.id);
-                      navigate(`/track/${ord.id}`, { replace: true });
-                      setCurrentOrder(ord);
-                      setNotFound(false);
-                    }}
-                  >
-                    <div className="track-recent-card__top">
-                      <span className="track-recent-card__id">#{ord.id}</span>
-                      <span className={`badge badge--status-${ordStatus} track-recent-card__badge`}>
-                        {statusObj?.icon || '⏳'} {statusObj?.shortLabel || statusObj?.label || ordStatus}
-                      </span>
-                    </div>
-                    <div className="track-recent-card__desc">
-                      {ord.items?.map((it) => `${it.name} (${it.quantity})`).join(', ')}
-                    </div>
-                    <div className="track-recent-card__bottom">
-                      <span>Pickup: {formatDate(ord.pickupDate || ord.deliveryDate)}</span>
-                      <strong className="font-display">{formatPrice(ord.total)}</strong>
-                    </div>
-                  </button>
-                );
-              })}
+        {/* Secondary Search Option (For tracking an older order ID if needed) */}
+        <div className="track-secondary-search">
+          {!showSearch ? (
+            <button
+              type="button"
+              className="track-search-toggle-btn"
+              onClick={() => setShowSearch(true)}
+            >
+              <Search size={15} />
+              <span>Looking for a specific Order ID? Search here</span>
+            </button>
+          ) : (
+            <div className="track-search-card animate-fade-in-up">
+              <form onSubmit={handleSearchSubmit} className="track-search-form">
+                <div className="track-search-input-wrap">
+                  <Search size={20} className="track-search-icon" />
+                  <input
+                    type="text"
+                    className="input-field track-search-input"
+                    placeholder="Enter Order ID (e.g. ORD-MTMN5LF3)"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    required
+                  />
+                </div>
+                <button type="submit" className="btn btn--primary" disabled={isLoading}>
+                  {isLoading ? (
+                    <>
+                      <RefreshCw size={16} className="animate-spin" />
+                      Searching...
+                    </>
+                  ) : (
+                    'Track Order'
+                  )}
+                </button>
+              </form>
+            </div>
+          )}
+        </div>
+        {/* Cancellation Confirmation Modal */}
+        {showCancelModal && currentOrder && (
+          <div className="order-popup-overlay" onClick={() => !isCancelling && setShowCancelModal(false)}>
+            <div className="order-cancel-popup" onClick={(e) => e.stopPropagation()}>
+              <div className="order-cancel-popup__icon">⚠️</div>
+              <h3 className="order-cancel-popup__title font-display">Cancel Order #{currentOrder.id}?</h3>
+              <p className="order-cancel-popup__desc">
+                Are you sure you want to cancel this order? Since this order has not been approved yet, you can cancel it now without any charges.
+              </p>
+              <div className="order-cancel-popup__actions">
+                <button
+                  type="button"
+                  className="btn btn--secondary"
+                  onClick={() => setShowCancelModal(false)}
+                  disabled={isCancelling}
+                >
+                  Keep Order
+                </button>
+                <button
+                  type="button"
+                  className="btn btn--danger"
+                  onClick={handleCancelOrder}
+                  disabled={isCancelling}
+                >
+                  {isCancelling ? 'Cancelling...' : 'Yes, Cancel Order'}
+                </button>
+              </div>
             </div>
           </div>
         )}

@@ -1,15 +1,34 @@
-import React, { useState, Component } from 'react';
+import React, { useState, Component, Suspense, lazy, useEffect } from 'react';
 import { BrowserRouter, Routes, Route, useLocation } from 'react-router-dom';
 import { StoreProvider, useStore } from './store/StoreContext';
 import Header from './components/Header';
 import Footer from './components/Footer';
 import HomePage from './pages/HomePage';
-import CartPage from './pages/CartPage';
-import CheckoutPage from './pages/CheckoutPage';
-import AdminPage from './pages/AdminPage';
-import AuthPage from './pages/AuthPage';
-import TrackOrderPage from './pages/TrackOrderPage';
 import './App.css';
+
+// Code-split heavy routes for rapid initial page load & smooth navigation
+const CartPage = lazy(() => import('./pages/CartPage'));
+const CheckoutPage = lazy(() => import('./pages/CheckoutPage'));
+const AdminPage = lazy(() => import('./pages/AdminPage'));
+const AuthPage = lazy(() => import('./pages/AuthPage'));
+const TrackOrderPage = lazy(() => import('./pages/TrackOrderPage'));
+
+function ScrollToTop() {
+  const { pathname } = useLocation();
+  useEffect(() => {
+    window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+  }, [pathname]);
+  return null;
+}
+
+function PageLoadingFallback() {
+  return (
+    <div className="page-loader" aria-label="Loading content...">
+      <div className="page-loader__spinner" />
+      <span className="page-loader__text font-display">Freshly baking your view...</span>
+    </div>
+  );
+}
 
 class ErrorBoundary extends Component {
   constructor(props) {
@@ -102,14 +121,14 @@ function AppContent() {
   const [showAuthModal, setShowAuthModal] = useState(false);
   const location = useLocation();
 
-  // Allow /admin and /track to render directly without blocking
+  // Allow /admin to render directly without blocking (admin has its own auth)
   const isAdminRoute = location.pathname === '/admin';
-  const isTrackRoute = location.pathname.startsWith('/track');
-
-  if (!currentUser && !isAdminRoute && !isTrackRoute) {
+  if (!currentUser && !isAdminRoute) {
     return (
       <div className="app">
-        <AuthPage />
+        <Suspense fallback={<PageLoadingFallback />}>
+          <AuthPage />
+        </Suspense>
         <Toast />
       </div>
     );
@@ -117,20 +136,27 @@ function AppContent() {
 
   return (
     <div className="app">
+      <ScrollToTop />
       <Header onOpenAuth={() => setShowAuthModal(true)} />
       <main className="main">
-        <Routes>
-          <Route path="/" element={<HomePage />} />
-          <Route path="/cart" element={<CartPage />} />
-          <Route path="/checkout" element={<CheckoutPage />} />
-          <Route path="/track" element={<TrackOrderPage />} />
-          <Route path="/track/:orderId" element={<TrackOrderPage />} />
-          <Route path="/admin" element={<AdminPage />} />
-        </Routes>
+        <Suspense fallback={<PageLoadingFallback />}>
+          <div key={location.pathname} className="route-view">
+            <Routes>
+              <Route path="/" element={<HomePage />} />
+              <Route path="/cart" element={<CartPage />} />
+              <Route path="/checkout" element={<CheckoutPage />} />
+              <Route path="/track" element={<TrackOrderPage />} />
+              <Route path="/track/:orderId" element={<TrackOrderPage />} />
+              <Route path="/admin" element={<AdminPage />} />
+            </Routes>
+          </div>
+        </Suspense>
       </main>
       <Footer />
       {showAuthModal && (
-        <AuthPage onClose={() => setShowAuthModal(false)} isModal={true} />
+        <Suspense fallback={null}>
+          <AuthPage onClose={() => setShowAuthModal(false)} isModal={true} />
+        </Suspense>
       )}
       <Toast />
     </div>

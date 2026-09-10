@@ -6,7 +6,9 @@
   border-radius: var(--radius-xl);
   overflow: hidden;
   background: var(--color-white);
-  transition: all var(--transition-base);
+  transition: transform var(--transition-base), box-shadow var(--transition-base);
+  will-change: transform;
+  transform: translateZ(0);
 }
 
 .product-card:hover {

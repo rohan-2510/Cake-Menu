@@ -30,8 +30,8 @@ export default function Header({ onOpenAuth }) {
     { to: '/#menu', label: 'Menu' },
   ];
 
-  // Track Order is ONLY for customers (hidden for Admin)
-  if (!isAdmin) {
+  // Track Order is ONLY for logged-in customers (hidden for Admin and Guests)
+  if (!isAdmin && isLoggedIn) {
     navLinks.push({ to: '/track', label: '📍 Track Order' });
   }
 

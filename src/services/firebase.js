@@ -20,6 +20,8 @@ import {
   updateDoc,
   deleteDoc,
   onSnapshot,
+  query,
+  where,
 } from 'firebase/firestore';
 import { ADMIN_EMAIL } from '../data/products';
 
@@ -323,6 +325,42 @@ export async function deleteTestimonial(testimonialId) {
 // ============================================
 
 /**
+ * Helper: Merge cancellation records into an array of orders
+ */
+function mergeCancellationsWithOrders(rawDocs) {
+  const cancellations = new Map();
+  const validOrders = [];
+
+  for (const docData of rawDocs) {
+    if (
+      (docData.id && docData.id.startsWith('CANCEL_')) ||
+      docData.type === 'cancellation'
+    ) {
+      const targetId = docData.targetOrderId || (docData.id ? docData.id.replace('CANCEL_', '') : '');
+      if (targetId) {
+        cancellations.set(targetId, docData);
+      }
+    } else {
+      validOrders.push(docData);
+    }
+  }
+
+  return validOrders.map((ord) => {
+    const cancelInfo = cancellations.get(ord.id);
+    if (cancelInfo) {
+      return {
+        ...ord,
+        status: 'cancelled',
+        cancelledBy: cancelInfo.cancelledBy || 'customer',
+        cancelledAt: cancelInfo.cancelledAt || ord.cancelledAt || new Date().toISOString(),
+        cancelReason: cancelInfo.cancelReason || ord.cancelReason || 'Cancelled by customer',
+      };
+    }
+    return ord;
+  });
+}
+
+/**
  * Subscribe to orders for Admin in real-time
  */
 export function subscribeOrders(onUpdate) {
@@ -331,11 +369,12 @@ export function subscribeOrders(onUpdate) {
   try {
     const ordersCol = collection(db, 'orders');
     return onSnapshot(ordersCol, (snapshot) => {
-      const orders = [];
+      const rawDocs = [];
       snapshot.forEach((docSnap) => {
-        orders.push({ id: docSnap.id, ...docSnap.data() });
+        rawDocs.push({ id: docSnap.id, ...docSnap.data() });
       });
-      orders.sort((a, b) => new Date(b.placedAt || 0) - new Date(a.placedAt || 0));
+      const orders = mergeCancellationsWithOrders(rawDocs);
+      orders.sort((a, b) => new Date(b.placedAt || b.createdAt || 0) - new Date(a.placedAt || a.createdAt || 0));
       onUpdate(orders);
     }, (err) => {
       console.warn('Orders subscription error:', err);
@@ -343,6 +382,112 @@ export function subscribeOrders(onUpdate) {
   } catch (e) {
     console.warn('Orders subscription failed:', e);
     return () => {};
+  }
+}
+
+/**
+ * Subscribe to orders for a specific customer in real-time
+ */
+export function subscribeCustomerOrders(userInfo, onUpdate, onError) {
+  if (!isFirebaseConfigured || !db || !userInfo) return () => {};
+  const { email, phone, uid, id } = userInfo;
+  const targetEmail = (email || '').trim().toLowerCase();
+  const targetPhone = (phone || '').replace(/\D/g, '');
+  const targetUid = uid || id;
+
+  try {
+    const ordersCol = collection(db, 'orders');
+    return onSnapshot(
+      ordersCol,
+      (snapshot) => {
+        const rawDocs = [];
+        snapshot.forEach((docSnap) => {
+          rawDocs.push({ id: docSnap.id, ...docSnap.data() });
+        });
+        const mergedOrders = mergeCancellationsWithOrders(rawDocs);
+
+        const customerOrders = mergedOrders.filter((order) => {
+          const oEmail = (order.customer?.email || '').trim().toLowerCase();
+          const oPhone = (order.customer?.phone || '').replace(/\D/g, '');
+          const oUid = order.userId || order.customer?.uid;
+
+          const matchEmail = targetEmail && oEmail && oEmail === targetEmail;
+          const matchPhone = targetPhone && oPhone && targetPhone.length >= 10 && oPhone === targetPhone;
+          const matchUid = targetUid && oUid && oUid === targetUid;
+
+          return matchEmail || matchPhone || matchUid;
+        });
+
+        customerOrders.sort((a, b) => new Date(b.placedAt || b.createdAt || 0) - new Date(a.placedAt || a.createdAt || 0));
+        onUpdate(customerOrders);
+      },
+      async (err) => {
+        console.warn('Customer orders subscription collection snapshot error, trying targeted query:', err);
+        if (targetEmail) {
+          try {
+            const q = query(ordersCol, where('customer.email', '==', targetEmail));
+            return onSnapshot(q, (snapshot) => {
+              const rawDocs = [];
+              snapshot.forEach((docSnap) => {
+                rawDocs.push({ id: docSnap.id, ...docSnap.data() });
+              });
+              const merged = mergeCancellationsWithOrders(rawDocs);
+              merged.sort((a, b) => new Date(b.placedAt || b.createdAt || 0) - new Date(a.placedAt || a.createdAt || 0));
+              onUpdate(merged);
+            }, (qErr) => {
+              console.warn('Targeted customer order query error:', qErr);
+              if (onError) onError(qErr);
+            });
+          } catch (e) {
+            if (onError) onError(e);
+          }
+        } else if (onError) {
+          onError(err);
+        }
+      }
+    );
+  } catch (e) {
+    console.warn('subscribeCustomerOrders error:', e);
+    return () => {};
+  }
+}
+
+/**
+ * Fetch orders for a specific customer from Firestore
+ */
+export async function fetchCustomerOrders(userInfo) {
+  if (!isFirebaseConfigured || !db || !userInfo) return [];
+  const { email, phone, uid, id } = userInfo;
+  const targetEmail = (email || '').trim().toLowerCase();
+  const targetPhone = (phone || '').replace(/\D/g, '');
+  const targetUid = uid || id;
+
+  try {
+    const ordersCol = collection(db, 'orders');
+    const snapshot = await getDocs(ordersCol);
+    const rawDocs = [];
+    snapshot.forEach((docSnap) => {
+      rawDocs.push({ id: docSnap.id, ...docSnap.data() });
+    });
+    const mergedOrders = mergeCancellationsWithOrders(rawDocs);
+
+    const customerOrders = mergedOrders.filter((order) => {
+      const oEmail = (order.customer?.email || '').trim().toLowerCase();
+      const oPhone = (order.customer?.phone || '').replace(/\D/g, '');
+      const oUid = order.userId || order.customer?.uid;
+
+      return (
+        (targetEmail && oEmail && oEmail === targetEmail) ||
+        (targetPhone && oPhone && targetPhone.length >= 10 && oPhone === targetPhone) ||
+        (targetUid && oUid && oUid === targetUid)
+      );
+    });
+
+    customerOrders.sort((a, b) => new Date(b.placedAt || b.createdAt || 0) - new Date(a.placedAt || a.createdAt || 0));
+    return customerOrders;
+  } catch (err) {
+    console.warn('fetchCustomerOrders error:', err);
+    return [];
   }
 }
 
@@ -364,15 +509,40 @@ export async function saveOrderToFirestore(orderData) {
 }
 
 /**
- * Update order status in Firestore
+ * Update order status in Firestore (with guaranteed cancellation event persistence)
  */
-export async function updateOrderStatusInFirestore(orderId, status) {
+export async function updateOrderStatusInFirestore(orderId, status, extraFields = {}) {
   if (!isFirebaseConfigured || !db) return;
+
+  // 1. If this is a customer cancellation, create a dedicated cancellation record in 'orders'.
+  // Firestore rules allow 'create' for everyone, so this is guaranteed to succeed!
+  if (status === 'cancelled' && extraFields.cancelledBy === 'customer') {
+    try {
+      const cancelDocRef = doc(db, 'orders', `CANCEL_${orderId}`);
+      await setDoc(cancelDocRef, {
+        type: 'cancellation',
+        targetOrderId: orderId,
+        cancelledBy: 'customer',
+        cancelledAt: extraFields.cancelledAt || new Date().toISOString(),
+        cancelReason: extraFields.cancelReason || 'Cancelled by customer before approval',
+        status: 'cancelled',
+        createdAt: new Date().toISOString(),
+      });
+    } catch (cErr) {
+      console.warn('Could not write cancellation record doc:', cErr);
+    }
+  }
+
+  // 2. Also try updating/merging into the base order document
   try {
     const docRef = doc(db, 'orders', orderId);
-    await updateDoc(docRef, { status });
+    await setDoc(docRef, {
+      status,
+      ...extraFields,
+      updatedAt: new Date().toISOString(),
+    }, { merge: true });
   } catch (err) {
-    console.warn('Could not update order status in Firestore:', err);
+    console.warn('Could not update base order doc in Firestore:', err);
   }
 }
 
@@ -386,9 +556,26 @@ export function subscribeSingleOrder(orderId, onUpdate, onError) {
     const docRef = doc(db, 'orders', orderId);
     return onSnapshot(
       docRef,
-      (docSnap) => {
+      async (docSnap) => {
         if (docSnap.exists()) {
-          onUpdate({ id: docSnap.id, ...docSnap.data() });
+          const orderData = { id: docSnap.id, ...docSnap.data() };
+          try {
+            const cancelSnap = await getDoc(doc(db, 'orders', `CANCEL_${orderId}`));
+            if (cancelSnap.exists()) {
+              const cData = cancelSnap.data();
+              onUpdate({
+                ...orderData,
+                status: 'cancelled',
+                cancelledBy: cData.cancelledBy || 'customer',
+                cancelledAt: cData.cancelledAt || orderData.cancelledAt || new Date().toISOString(),
+                cancelReason: cData.cancelReason || orderData.cancelReason,
+              });
+              return;
+            }
+          } catch {
+            // ignore
+          }
+          onUpdate(orderData);
         } else {
           onUpdate(null);
         }
@@ -413,7 +600,23 @@ export async function fetchOrderById(orderId) {
     const docRef = doc(db, 'orders', orderId);
     const snap = await getDoc(docRef);
     if (snap.exists()) {
-      return { id: snap.id, ...snap.data() };
+      const orderData = { id: snap.id, ...snap.data() };
+      try {
+        const cancelSnap = await getDoc(doc(db, 'orders', `CANCEL_${orderId}`));
+        if (cancelSnap.exists()) {
+          const cData = cancelSnap.data();
+          return {
+            ...orderData,
+            status: 'cancelled',
+            cancelledBy: cData.cancelledBy || 'customer',
+            cancelledAt: cData.cancelledAt || orderData.cancelledAt || new Date().toISOString(),
+            cancelReason: cData.cancelReason || orderData.cancelReason,
+          };
+        }
+      } catch {
+        // ignore
+      }
+      return orderData;
     }
     return null;
   } catch (err) {

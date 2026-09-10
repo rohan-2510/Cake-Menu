@@ -8,7 +8,7 @@ import { InstagramIcon, WhatsAppIcon } from './icons/SocialIcons';
 import './Footer.css';
 
 export default function Footer() {
-  const { isAdmin } = useStore();
+  const { isAdmin, isLoggedIn } = useStore();
   return (
     <footer className="footer" id="footer">
       <div className="container">
@@ -35,11 +35,11 @@ export default function Footer() {
             <a href="#about" className="footer__link">About Us</a>
             <a href="#testimonials" className="footer__link">Reviews</a>
             <a href="/cart" className="footer__link">Cart & Checkout</a>
-            {!isAdmin ? (
+            {!isAdmin && isLoggedIn ? (
               <a href="/track" className="footer__link">📍 Track Your Order</a>
-            ) : (
+            ) : isAdmin ? (
               <a href="/admin" className="footer__link" style={{ opacity: 0.9 }}>👑 Admin Dashboard</a>
-            )}
+            ) : null}
           </div>
 
           {/* Contact */}

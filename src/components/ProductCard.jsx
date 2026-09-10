@@ -50,6 +50,7 @@ export default function ProductCard({ product, onQuickView, onAddToCart }) {
             alt={name}
             className={`product-card__img ${imageLoaded ? 'product-card__img--loaded' : ''}`}
             loading="lazy"
+            decoding="async"
             onLoad={() => setImageLoaded(true)}
             onError={() => setImageError(true)}
           />

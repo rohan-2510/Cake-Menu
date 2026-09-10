@@ -4,8 +4,9 @@
 import { useState, useMemo } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import {
-  ArrowLeft, Calendar, Clock, User, Phone,
-  FileText, Send, CheckCircle, ChevronLeft, ChevronRight
+  ArrowLeft, Calendar, Clock, User,
+  FileText, Send, ChevronLeft, ChevronRight,
+  CheckCircle2, Copy, Check, X, XCircle
 } from 'lucide-react';
 import { WhatsAppIcon } from '../components/icons/SocialIcons';
 import { useStore } from '../store/StoreContext';
@@ -19,7 +20,7 @@ import './CheckoutPage.css';
 
 export default function CheckoutPage() {
   const navigate = useNavigate();
-  const { state, dispatch, Actions, cartTotal, getProduct, isDateAvailable, currentUser, placeOrder } = useStore();
+  const { state, dispatch, Actions, cartTotal, getProduct, isDateAvailable, currentUser, placeOrder, cancelOrder } = useStore();
   const { cart } = state;
 
   const [pickupDate, setPickupDate] = useState('');
@@ -31,6 +32,10 @@ export default function CheckoutPage() {
   });
   const [orderMethod, setOrderMethod] = useState('whatsapp');
   const [orderPlaced, setOrderPlaced] = useState(null);
+  const [showSuccessPopup, setShowSuccessPopup] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const [showCancelModal, setShowCancelModal] = useState(false);
+  const [isCancelling, setIsCancelling] = useState(false);
   const [calendarMonth, setCalendarMonth] = useState(new Date());
 
   const total = cartTotal;
@@ -73,93 +78,315 @@ export default function CheckoutPage() {
   const handlePlaceOrder = async () => {
     const slotObj = TIME_SLOTS.find((s) => s.id === timeSlot);
     const orderData = {
+      userId: currentUser?.uid || currentUser?.id || '',
       items: cart.map((item) => ({
         ...item,
       })),
       pickupDate,
       timeSlot: slotObj?.label + ' (' + slotObj?.time + ')',
-      customer: { ...customer },
+      customer: {
+        ...customer,
+        email: currentUser?.email || '',
+        phone: customer.phone || currentUser?.phone || '',
+      },
       subtotal: cartTotal,
       total,
     };
 
     const placedOrder = await placeOrder(orderData);
 
+    setOrderPlaced(placedOrder);
+    setShowSuccessPopup(true);
+    dispatch({
+      type: Actions.SET_TOAST,
+      payload: `🎉 Order #${placedOrder.id} booked successfully!`,
+    });
+
     if (orderMethod === 'whatsapp') {
       const msg = generateWhatsAppMessage(orderData);
       const url = getWhatsAppUrl(msg);
       window.open(url, '_blank');
-      setOrderPlaced(placedOrder);
-    } else {
-      setOrderPlaced(placedOrder);
+    }
+  };
+
+  const handleCancelOrder = async () => {
+    if (!orderPlaced?.id) return;
+    setIsCancelling(true);
+    try {
+      const success = await cancelOrder(orderPlaced.id);
+      if (success) {
+        setOrderPlaced((prev) => (prev ? {
+          ...prev,
+          status: 'cancelled',
+          cancelledBy: 'customer',
+          cancelledAt: new Date().toISOString()
+        } : null));
+        setShowSuccessPopup(false);
+      }
+      setShowCancelModal(false);
+    } catch (err) {
+      console.error('Failed to cancel order:', err);
+    } finally {
+      setIsCancelling(false);
     }
   };
 
   if (orderPlaced) {
+    const isPending = orderPlaced.status === 'pending_approval';
+    const isCancelled = orderPlaced.status === 'cancelled';
+
     return (
       <div className="checkout-page" id="checkout-page">
-        <div className="container">
-            <div className="checkout-success animate-fade-in-up">
-              <span style={{ fontSize: '3.5rem', display: 'block', marginBottom: '0.5rem' }}>⏳</span>
-              <h1 className="font-display">Order Submitted for Approval!</h1>
-              <div style={{
-                margin: '0.75rem 0 1.25rem',
-                padding: '0.6rem 1.2rem',
-                background: 'var(--color-cream, #FFF3EB)',
-                border: '1px dashed var(--color-terracotta)',
-                borderRadius: '12px',
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '8px'
-              }}>
-                <span style={{ fontSize: '0.9rem', color: 'var(--color-gray-600)' }}>Your Order ID:</span>
-                <strong style={{ fontSize: '1.15rem', color: 'var(--color-cocoa)', fontFamily: 'monospace' }}>
-                  #{orderPlaced.id}
-                </strong>
-              </div>
-              <p>Thank you, <strong>{customer.name}</strong>! Your order request has been sent to Priyanka for approval.</p>
+        {/* Order Booked Successfully Popup Modal */}
+        {showSuccessPopup && !isCancelled && (
+          <div className="order-popup-overlay" onClick={() => setShowSuccessPopup(false)}>
+            <div className="order-success-popup" onClick={(e) => e.stopPropagation()}>
+              <button
+                type="button"
+                className="order-popup__close-btn"
+                onClick={() => setShowSuccessPopup(false)}
+                aria-label="Close popup"
+              >
+                <X size={18} />
+              </button>
 
+              <div className="order-popup__icon-wrap">
+                <div className="order-popup__icon-circle">
+                  <CheckCircle2 size={42} />
+                </div>
+                <span className="order-popup__confetti order-popup__confetti--1">🎉</span>
+                <span className="order-popup__confetti order-popup__confetti--2">🎂</span>
+              </div>
+
+              <h2 className="order-popup__title font-display">Order Booked Successfully!</h2>
+              <p className="order-popup__subtitle">
+                Thank you, <strong>{customer.name}</strong>! Your cake order request has been received by Baker Priyanka.
+              </p>
+
+              <div className="order-popup__id-box">
+                <span style={{ fontSize: '0.85rem', color: 'var(--color-gray-600)' }}>Order ID:</span>
+                <span className="order-popup__id-val">#{orderPlaced.id}</span>
+                <button
+                  type="button"
+                  className="order-popup__copy-btn"
+                  onClick={() => {
+                    navigator.clipboard.writeText(orderPlaced.id);
+                    setCopied(true);
+                    setTimeout(() => setCopied(false), 2000);
+                  }}
+                >
+                  {copied ? <Check size={12} color="#2E7D32" /> : <Copy size={12} />}
+                  <span>{copied ? 'Copied' : 'Copy'}</span>
+                </button>
+              </div>
+
+              <div className="order-popup__details-grid">
+                <div className="order-popup__detail-row">
+                  <span>📅 Pickup Date:</span>
+                  <strong>{formatDate(pickupDate)}</strong>
+                </div>
+                <div className="order-popup__detail-row">
+                  <span>⏰ Time Slot:</span>
+                  <strong>{TIME_SLOTS.find((s) => s.id === timeSlot)?.label || timeSlot}</strong>
+                </div>
+                <div className="order-popup__detail-row">
+                  <span>💰 Total Bill:</span>
+                  <strong className="font-display" style={{ color: 'var(--color-terracotta)', fontSize: '1.05rem' }}>
+                    {formatPrice(total)}
+                  </strong>
+                </div>
+                <div className="order-popup__detail-row">
+                  <span>💳 Payment:</span>
+                  <span>Pay on Pickup (Cash / UPI)</span>
+                </div>
+                <div className="order-popup__detail-row">
+                  <span>🏠 Location:</span>
+                  <span>Self-pickup from Sirsi</span>
+                </div>
+              </div>
+
+              <div className="order-popup__notice">
+                <span style={{ fontSize: '1.25rem', lineHeight: 1 }}>👩‍🍳</span>
+                <div>
+                  <strong>Next Step: Baker Review & Preparation</strong>
+                  <div>Priyanka will review your requested slot and prepare your cake fresh. You can track approval and baking live!</div>
+                </div>
+              </div>
+
+              <div className="order-popup__actions">
+                <Link
+                  to={`/track/${orderPlaced.id}`}
+                  className="btn btn--primary btn--full"
+                  style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', padding: '0.85rem' }}
+                >
+                  <span>📍 Track Order Live</span>
+                </Link>
+                {isPending && (
+                  <button
+                    type="button"
+                    className="btn btn--outline-danger btn--full"
+                    onClick={() => setShowCancelModal(true)}
+                    style={{ padding: '0.75rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
+                  >
+                    <XCircle size={15} />
+                    <span>Cancel Order</span>
+                  </button>
+                )}
+                <Link
+                  to="/"
+                  className="btn btn--ghost btn--full"
+                  style={{ padding: '0.75rem' }}
+                >
+                  <span>Back to Menu</span>
+                </Link>
+              </div>
+            </div>
+          </div>
+        )}
+
+        <div className="container">
+          <div className="checkout-success animate-fade-in-up">
+            <span style={{ fontSize: '3.5rem', display: 'block', marginBottom: '0.5rem' }}>
+              {isCancelled ? '❌' : '⏳'}
+            </span>
+            <h1 className="font-display">
+              {isCancelled ? 'Order Cancelled' : 'Order Submitted for Approval!'}
+            </h1>
+            <div style={{
+              margin: '0.75rem 0 1.25rem',
+              padding: '0.6rem 1.2rem',
+              background: 'var(--color-cream, #FFF3EB)',
+              border: '1px dashed var(--color-terracotta)',
+              borderRadius: '12px',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '8px'
+            }}>
+              <span style={{ fontSize: '0.9rem', color: 'var(--color-gray-600)' }}>Your Order ID:</span>
+              <strong style={{ fontSize: '1.15rem', color: 'var(--color-cocoa)', fontFamily: 'monospace' }}>
+                #{orderPlaced.id}
+              </strong>
+            </div>
+
+            {isCancelled ? (
               <div style={{
-                background: '#FFF8E1',
-                border: '1px solid #FFE082',
+                background: '#FEE2E2',
+                border: '1px solid #FCA5A5',
                 borderRadius: '12px',
                 padding: '1rem 1.25rem',
-                margin: '1.25rem auto',
+                margin: '1rem auto 1.5rem',
                 maxWidth: '480px',
                 textAlign: 'left',
                 display: 'flex',
                 gap: '12px',
-                alignItems: 'flex-start'
+                alignItems: 'center'
               }}>
-                <span style={{ fontSize: '1.5rem', lineHeight: 1 }}>👩‍🍳</span>
-                <div style={{ fontSize: '0.88rem', color: '#5D4037', lineHeight: 1.45 }}>
-                  <strong style={{ display: 'block', color: '#B78103', marginBottom: '2px' }}>Next Step: Baker Review & Approval</strong>
-                  Priyanka will review your requested pickup slot and cake customization. Once approved, your order will be officially confirmed and prepared fresh!
+                <span style={{ fontSize: '1.5rem' }}>❌</span>
+                <div style={{ fontSize: '0.88rem', color: '#991B1B', lineHeight: 1.45 }}>
+                  <strong style={{ display: 'block', color: '#7F1D1D', marginBottom: '2px' }}>Order Request Cancelled</strong>
+                  You have cancelled this order. If you need to make a new order with different items or timings, feel free to browse our menu!
                 </div>
               </div>
+            ) : (
+              <>
+                <p>Thank you, <strong>{customer.name}</strong>! Your order request has been sent to Priyanka for approval.</p>
 
-              <div className="checkout-success__details">
-                <p>📅 Requested Pickup: <strong>{formatDate(pickupDate)}</strong></p>
-                <p>🕐 Time Slot: <strong>{TIME_SLOTS.find((s) => s.id === timeSlot)?.label}</strong></p>
-                <p>💰 Total: <strong>{formatPrice(total)}</strong></p>
-                <p>💳 Payment: <strong>Pay on Pickup</strong></p>
-                <p>🏠 <strong>Self-pickup from Sirsi</strong></p>
-              </div>
-              {orderMethod === 'whatsapp' && (
-                <p className="checkout-success__wa-note">
-                  📱 A WhatsApp message has been opened. Please send it to connect directly with Priyanka.
-                </p>
+                <div style={{
+                  background: '#FFF8E1',
+                  border: '1px solid #FFE082',
+                  borderRadius: '12px',
+                  padding: '1rem 1.25rem',
+                  margin: '1.25rem auto',
+                  maxWidth: '480px',
+                  textAlign: 'left',
+                  display: 'flex',
+                  gap: '12px',
+                  alignItems: 'flex-start'
+                }}>
+                  <span style={{ fontSize: '1.5rem', lineHeight: 1 }}>👩‍🍳</span>
+                  <div style={{ fontSize: '0.88rem', color: '#5D4037', lineHeight: 1.45 }}>
+                    <strong style={{ display: 'block', color: '#B78103', marginBottom: '2px' }}>Next Step: Baker Review & Approval</strong>
+                    Priyanka will review your requested pickup slot and cake customization. Once approved, your order will be officially confirmed and prepared fresh!
+                  </div>
+                </div>
+              </>
+            )}
+
+            <div className="checkout-success__details">
+              <p>📅 Requested Pickup: <strong>{formatDate(pickupDate)}</strong></p>
+              <p>🕐 Time Slot: <strong>{TIME_SLOTS.find((s) => s.id === timeSlot)?.label}</strong></p>
+              <p>💰 Total: <strong>{formatPrice(total)}</strong></p>
+              <p>💳 Payment: <strong>Pay on Pickup</strong></p>
+              <p>🏠 <strong>Self-pickup from Sirsi</strong></p>
+            </div>
+
+            {orderMethod === 'whatsapp' && !isCancelled && (
+              <p className="checkout-success__wa-note">
+                📱 A WhatsApp message has been opened. Please send it to connect directly with Priyanka.
+              </p>
+            )}
+
+            <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'center', flexWrap: 'wrap', marginTop: '1.5rem' }}>
+              {!isCancelled && (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => setShowSuccessPopup(true)}
+                    className="btn btn--secondary btn--lg"
+                  >
+                    🎉 View Booking Details
+                  </button>
+                  <Link to={`/track/${orderPlaced.id}`} className="btn btn--primary btn--lg">
+                    📍 Track Approval Status Live
+                  </Link>
+                  {isPending && (
+                    <button
+                      type="button"
+                      className="btn btn--outline-danger btn--lg"
+                      onClick={() => setShowCancelModal(true)}
+                    >
+                      Cancel Order
+                    </button>
+                  )}
+                </>
               )}
-              <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'center', flexWrap: 'wrap', marginTop: '1.5rem' }}>
-                <Link to={`/track/${orderPlaced.id}`} className="btn btn--primary btn--lg">
-                  📍 Track Approval Status Live
-                </Link>
-                <Link to="/" className="btn btn--outline btn--lg">
-                  Back to Home
-                </Link>
+              <Link to="/" className="btn btn--outline btn--lg">
+                Back to Home
+              </Link>
+            </div>
+          </div>
+        </div>
+
+        {/* Cancellation Confirmation Modal */}
+        {showCancelModal && orderPlaced && (
+          <div className="order-popup-overlay" onClick={() => !isCancelling && setShowCancelModal(false)}>
+            <div className="order-cancel-popup" onClick={(e) => e.stopPropagation()}>
+              <div className="order-cancel-popup__icon">⚠️</div>
+              <h3 className="order-cancel-popup__title font-display">Cancel Order #{orderPlaced.id}?</h3>
+              <p className="order-cancel-popup__desc">
+                Are you sure you want to cancel this order? Since this order has not been approved yet, you can cancel it now without any charges.
+              </p>
+              <div className="order-cancel-popup__actions">
+                <button
+                  type="button"
+                  className="btn btn--secondary"
+                  onClick={() => setShowCancelModal(false)}
+                  disabled={isCancelling}
+                >
+                  Keep Order
+                </button>
+                <button
+                  type="button"
+                  className="btn btn--danger"
+                  onClick={handleCancelOrder}
+                  disabled={isCancelling}
+                >
+                  {isCancelling ? 'Cancelling...' : 'Yes, Cancel Order'}
+                </button>
               </div>
             </div>
-        </div>
+          </div>
+        )}
       </div>
     );
   }

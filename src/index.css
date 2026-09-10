@@ -226,9 +226,15 @@ ul, ol {
   border-radius: var(--radius-lg);
   font-weight: 600;
   font-size: var(--text-sm);
-  transition: all var(--transition-base);
+  transition: transform var(--transition-fast), box-shadow var(--transition-fast), background var(--transition-fast), border-color var(--transition-fast);
   position: relative;
   overflow: hidden;
+  will-change: transform;
+  transform: translateZ(0);
+}
+
+.btn:active {
+  transform: scale(0.975);
 }
 
 .btn::after {
@@ -292,6 +298,30 @@ ul, ol {
 
 .btn--ghost:hover {
   background: rgba(61, 35, 20, 0.05);
+}
+
+.btn--danger {
+  background: linear-gradient(135deg, #DC2626, #B91C1C);
+  color: var(--color-white);
+  box-shadow: 0 4px 14px rgba(220, 38, 38, 0.3);
+}
+
+.btn--danger:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(220, 38, 38, 0.4);
+}
+
+.btn--outline-danger {
+  background: transparent;
+  color: #DC2626;
+  border: 1.5px solid #FCA5A5;
+}
+
+.btn--outline-danger:hover {
+  background: #FEF2F2;
+  border-color: #DC2626;
+  color: #B91C1C;
+  transform: translateY(-1px);
 }
 
 .btn--sm {
@@ -519,6 +549,51 @@ textarea.input-field {
   display: flex;
   align-items: center;
   gap: var(--space-2);
+}
+
+/* --- Order Cancellation Modal --- */
+.order-cancel-popup {
+  background: var(--color-white);
+  border-radius: var(--radius-2xl);
+  width: 100%;
+  max-width: 440px;
+  padding: 2rem 1.75rem 1.75rem;
+  text-align: center;
+  box-shadow: 0 25px 50px -12px rgba(61, 35, 20, 0.25);
+  animation: popupScaleUp 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  position: relative;
+  border: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+.order-cancel-popup__icon {
+  font-size: 2.75rem;
+  margin-bottom: 0.75rem;
+  display: inline-block;
+  line-height: 1;
+}
+
+.order-cancel-popup__title {
+  font-size: 1.35rem;
+  color: var(--color-cocoa);
+  margin-bottom: 0.5rem;
+}
+
+.order-cancel-popup__desc {
+  font-size: 0.9rem;
+  color: var(--color-gray-600);
+  line-height: 1.5;
+  margin-bottom: 1.5rem;
+}
+
+.order-cancel-popup__actions {
+  display: flex;
+  gap: 0.75rem;
+  justify-content: center;
+}
+
+.order-cancel-popup__actions .btn {
+  flex: 1;
+  padding: 0.75rem 1rem;
 }
 
 /* --- Responsive --- */

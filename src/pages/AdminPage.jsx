@@ -4,14 +4,14 @@
 import { useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import {
-  Lock, LogOut, Package, Calendar, Settings, ChevronRight,
-  ChevronLeft, ToggleLeft, ToggleRight, Minus, Plus, Eye,
+  LogOut, Package, Calendar, Settings, ChevronRight,
+  ChevronLeft, ToggleLeft, ToggleRight, Minus, Plus,
   ShieldAlert, MessageSquare, PlusCircle, Edit3, Trash2,
-  Check, X, Image, DollarSign, Star, User, Phone
+  Check, X, Star, User, Phone
 } from 'lucide-react';
 import { WhatsAppIcon } from '../components/icons/SocialIcons';
 import { useStore } from '../store/StoreContext';
-import { ORDER_STATUSES, CATEGORIES, SIZES, ADMIN_EMAIL, DEFAULT_ADMIN_PASSWORD, normalizeOrderStatus } from '../data/products';
+import { ORDER_STATUSES, SIZES, ADMIN_EMAIL, DEFAULT_ADMIN_PASSWORD, normalizeOrderStatus } from '../data/products';
 import { loginUser, isFirebaseConfigured } from '../services/firebase';
 import { formatPrice, formatDate, formatDateTime, toDateString } from '../utils/helpers';
 import './AdminPage.css';
@@ -169,7 +169,12 @@ export default function AdminPage() {
   }
 
   const pendingOrdersCount = (state.orders || []).filter(
-    (o) => normalizeOrderStatus(o.status) === 'pending_approval'
+    (o) =>
+      !o.id?.startsWith('CANCEL_') &&
+      o.type !== 'cancellation' &&
+      normalizeOrderStatus(o.status) === 'pending_approval' &&
+      o.status !== 'cancelled' &&
+      o.cancelledBy !== 'customer'
   ).length;
 
   const tabs = [
@@ -298,15 +303,24 @@ export default function AdminPage() {
 // ============================================
 function OrdersPanel({ orders, onUpdateStatus }) {
   const [filter, setFilter] = useState('all');
-  const ordersList = orders || [];
+  const ordersList = useMemo(() => {
+    return (orders || []).filter((o) => !o.id?.startsWith('CANCEL_') && o.type !== 'cancellation');
+  }, [orders]);
 
   const filteredOrders = useMemo(() => {
     if (filter === 'all') return ordersList;
+    if (filter === 'pending_approval') {
+      return ordersList.filter(
+        (o) => normalizeOrderStatus(o.status) === 'pending_approval' && o.status !== 'cancelled' && o.cancelledBy !== 'customer'
+      );
+    }
     return ordersList.filter((o) => normalizeOrderStatus(o.status) === filter);
   }, [ordersList, filter]);
 
   const pendingCount = useMemo(() => {
-    return ordersList.filter((o) => normalizeOrderStatus(o.status) === 'pending_approval').length;
+    return ordersList.filter(
+      (o) => normalizeOrderStatus(o.status) === 'pending_approval' && o.status !== 'cancelled' && o.cancelledBy !== 'customer'
+    ).length;
   }, [ordersList]);
 
   return (
@@ -338,7 +352,13 @@ function OrdersPanel({ orders, onUpdateStatus }) {
           All ({ordersList.length})
         </button>
         {ORDER_STATUSES.map(({ id, label, icon }) => {
-          const count = ordersList.filter((o) => normalizeOrderStatus(o.status) === id).length;
+          const count = ordersList.filter((o) => {
+            const ordStatus = normalizeOrderStatus(o.status);
+            if (id === 'pending_approval') {
+              return ordStatus === 'pending_approval' && o.status !== 'cancelled' && o.cancelledBy !== 'customer';
+            }
+            return ordStatus === id;
+          }).length;
           return (
             <button
               key={id}
@@ -379,7 +399,7 @@ function OrdersPanel({ orders, onUpdateStatus }) {
                 </div>
 
                 {/* Priority Approval Card Bar */}
-                {currentStatus === 'pending_approval' && (
+                {currentStatus === 'pending_approval' && order.status !== 'cancelled' && order.cancelledBy !== 'customer' && (
                   <div className="admin-order__approval-box">
                     <div className="admin-order__approval-info">
                       <span className="admin-order__approval-badge">⏳ Action Required: Review &amp; Approve</span>
@@ -401,13 +421,46 @@ function OrdersPanel({ orders, onUpdateStatus }) {
                         className="btn btn--sm btn--outline admin-approval-btn admin-approval-btn--decline"
                         onClick={() => {
                           if (window.confirm(`Are you sure you want to decline order #${order.id}?`)) {
-                            onUpdateStatus(order.id, 'cancelled');
+                            onUpdateStatus(order.id, 'cancelled', { cancelledBy: 'admin', cancelledAt: new Date().toISOString() });
                           }
                         }}
                         title="Decline this order"
                       >
                         <X size={16} /> Decline
                       </button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Cancelled Info Box */}
+                {currentStatus === 'cancelled' && (
+                  <div
+                    className="admin-order__approval-box"
+                    style={{
+                      background: order.cancelledBy === 'customer' ? '#FEF2F2' : '#FFF3EB',
+                      borderLeft: `4px solid ${order.cancelledBy === 'customer' ? '#EF4444' : '#F97316'}`
+                    }}
+                  >
+                    <div className="admin-order__approval-info">
+                      <span
+                        className="admin-order__approval-badge"
+                        style={{
+                          background: order.cancelledBy === 'customer' ? '#FEE2E2' : '#FFEDD5',
+                          color: order.cancelledBy === 'customer' ? '#991B1B' : '#C2410C'
+                        }}
+                      >
+                        {order.cancelledBy === 'customer' ? '🚫 Cancelled by Customer' : '❌ Declined by Baker'}
+                      </span>
+                      <span className="admin-order__approval-text">
+                        {order.cancelledBy === 'customer'
+                          ? 'The customer cancelled this order before approval. No preparation is required.'
+                          : 'This order request was declined by the baker.'}
+                        {order.cancelledAt && (
+                          <span style={{ display: 'block', fontSize: '0.8rem', color: '#6B7280', marginTop: '2px' }}>
+                            Cancelled: {formatDateTime(order.cancelledAt)}
+                          </span>
+                        )}
+                      </span>
                     </div>
                   </div>
                 )}
@@ -532,22 +585,43 @@ function OrdersPanel({ orders, onUpdateStatus }) {
                   <span className="admin-order__total">Total: {formatPrice(order.total)}</span>
                   <div className="admin-order__status-actions">
                     <label htmlFor={`status-${order.id}`}>Status: </label>
-                    <select
-                      id={`status-${order.id}`}
-                      value={currentStatus}
-                      onChange={(e) =>
-                        onUpdateStatus
-                          ? onUpdateStatus(order.id, e.target.value)
-                          : null
-                      }
-                      className="admin-status-select"
-                    >
-                      {ORDER_STATUSES.map(({ id, label, icon }) => (
-                        <option key={id} value={id}>
-                          {icon} {label}
-                        </option>
-                      ))}
-                    </select>
+                    {order.cancelledBy === 'customer' || order.status === 'cancelled' ? (
+                      <span
+                        className="admin-status-badge"
+                        style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '6px',
+                          padding: '4px 12px',
+                          borderRadius: '20px',
+                          background: order.cancelledBy === 'customer' ? '#FEE2E2' : '#FFF3EB',
+                          color: order.cancelledBy === 'customer' ? '#991B1B' : '#C2410C',
+                          fontWeight: 600,
+                          fontSize: '0.85rem'
+                        }}
+                      >
+                        {order.cancelledBy === 'customer'
+                          ? '🚫 Cancelled by Customer (Locked)'
+                          : '❌ Declined by Baker (Locked)'}
+                      </span>
+                    ) : (
+                      <select
+                        id={`status-${order.id}`}
+                        value={currentStatus}
+                        onChange={(e) =>
+                          onUpdateStatus
+                            ? onUpdateStatus(order.id, e.target.value)
+                            : null
+                        }
+                        className="admin-status-select"
+                      >
+                        {ORDER_STATUSES.map(({ id, label, icon }) => (
+                          <option key={id} value={id}>
+                            {icon} {label}
+                          </option>
+                        ))}
+                      </select>
+                    )}
                   </div>
                 </div>
               </div>
