@@ -1,8 +1,53 @@
 /* ProductModal Styles */
+.product-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(26, 22, 19, 0.65);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  z-index: 10000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-4);
+  animation: modalBackdropFadeIn 0.2s ease-out forwards;
+}
+
+@keyframes modalBackdropFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.product-modal-card {
+  position: relative;
+  background: var(--color-white);
+  border-radius: var(--radius-2xl);
+  box-shadow: 0 25px 50px -12px rgba(26, 22, 19, 0.35);
+  max-width: 560px;
+  width: 100%;
+  max-height: 90vh;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  margin: auto;
+  padding: 0;
+  animation: modalZoomIn 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes modalZoomIn {
+  from {
+    opacity: 0;
+    transform: scale(0.96) translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
 .product-modal {
   max-width: 560px;
-  width: 94%;
-  max-height: 92vh;
+  width: 100%;
+  max-height: 90vh;
   padding: 0;
 }
 
@@ -345,15 +390,33 @@
 
 /* Mobile */
 @media (max-width: 600px) {
-  .product-modal {
-    max-height: 95vh;
+  .product-modal-backdrop {
+    padding: 0;
+    align-items: flex-end;
+  }
+
+  .product-modal-card {
+    max-height: 90vh;
+    border-radius: var(--radius-2xl) var(--radius-2xl) 0 0;
     width: 100%;
-    border-radius: var(--radius-xl) var(--radius-xl) 0 0;
-    top: auto;
-    bottom: 0;
-    left: 0;
-    right: 0;
-    transform: none;
+    animation: modalSlideUpMobile 0.28s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  }
+
+  @keyframes modalSlideUpMobile {
+    from {
+      opacity: 0;
+      transform: translateY(100%);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  .product-modal {
+    max-height: 90vh;
+    width: 100%;
+    border-radius: var(--radius-2xl) var(--radius-2xl) 0 0;
     max-width: 100%;
   }
 

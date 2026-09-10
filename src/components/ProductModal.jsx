@@ -1,7 +1,8 @@
 // ============================================
 // ProductModal — Interactive Customizer
 // ============================================
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { X, Star, Clock, ShoppingBag, Minus, Plus, AlertCircle } from 'lucide-react';
 import { SIZES } from '../data/products';
 import { useStore } from '../store/StoreContext';
@@ -28,6 +29,36 @@ export default function ProductModal({ product, onClose }) {
   const [customMessage, setCustomMessage] = useState('');
   const [quantity, setQuantity] = useState(1);
   const [added, setAdded] = useState(false);
+
+  // Lock body scroll while modal is open & add Escape key listener
+  useEffect(() => {
+    const originalOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') {
+        onClose();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+
+    return () => {
+      document.body.style.overflow = originalOverflow;
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [onClose]);
+
+  // Sync state if product changes
+  useEffect(() => {
+    const currentSizes = SIZES[product?.category] || SIZES.cakes;
+    setSelectedSize(currentSizes[0] || { id: 'std', label: 'Standard', serves: '1-2', multiplier: 1 });
+    setSelectedFlavor(flavors[0] || 'Standard');
+    setEggPreference('Eggless');
+    setCustomMessage('');
+    setQuantity(1);
+    setAdded(false);
+    setImgError(false);
+  }, [product?.id, product?.category]);
 
   const currentPrice = useMemo(() => {
     return Math.round((product?.basePrice || 0) * (selectedSize?.multiplier || 1));
@@ -75,12 +106,26 @@ export default function ProductModal({ product, onClose }) {
     }
   };
 
-  return (
-    <>
-      <div className="overlay" onClick={onClose} />
-      <div className="modal product-modal" id="product-modal">
+  return createPortal(
+    <div
+      className="product-modal-backdrop"
+      onClick={onClose}
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="modal-product-name"
+    >
+      <div
+        className="product-modal-card"
+        id="product-modal"
+        onClick={(e) => e.stopPropagation()}
+      >
         {/* Close */}
-        <button className="product-modal__close" onClick={onClose} id="modal-close">
+        <button
+          className="product-modal__close"
+          onClick={onClose}
+          id="modal-close"
+          aria-label="Close modal"
+        >
           <X size={20} />
         </button>
 
@@ -255,6 +300,7 @@ export default function ProductModal({ product, onClose }) {
           </div>
         </div>
       </div>
-    </>
+    </div>,
+    document.body
   );
 }

@@ -7,7 +7,6 @@
 
 .main {
   flex: 1;
-  contain: layout;
 }
 
 /* Page Loader Fallback */
