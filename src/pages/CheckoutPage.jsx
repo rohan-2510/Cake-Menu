@@ -10,7 +10,7 @@ import {
 } from 'lucide-react';
 import { WhatsAppIcon } from '../components/icons/SocialIcons';
 import { useStore } from '../store/StoreContext';
-import { TIME_SLOTS } from '../data/products';
+import { TIME_SLOTS, MAX_ORDER_LINE_ITEMS } from '../data/products';
 import {
   formatPrice, formatDate, getMaxLeadTime,
   getEarliestPickup, toDateString, isSlotAvailableToday,
@@ -76,14 +76,24 @@ export default function CheckoutPage() {
   const isFormValid = pickupDate && timeSlot && customer.name.trim() && customer.phone.trim().length >= 10;
 
   const handlePlaceOrder = async () => {
-    const slotObj = TIME_SLOTS.find((s) => s.id === timeSlot);
+    if (orderMethod === 'web' && !currentUser?.uid) {
+      dispatch({ type: Actions.SET_TOAST, payload: 'Please sign in with an account to place an online order.' });
+      return;
+    }
+    if (currentUser?.uid && cart.length > MAX_ORDER_LINE_ITEMS) {
+      dispatch({
+        type: Actions.SET_TOAST,
+        payload: `Online orders can include up to ${MAX_ORDER_LINE_ITEMS} different items. Please update your cart.`,
+      });
+      return;
+    }
     const orderData = {
-      userId: currentUser?.uid || currentUser?.id || '',
+      userId: currentUser?.role === 'customer' ? currentUser.uid : '',
       items: cart.map((item) => ({
         ...item,
       })),
       pickupDate,
-      timeSlot: slotObj?.label + ' (' + slotObj?.time + ')',
+      timeSlot,
       customer: {
         ...customer,
         email: currentUser?.email || '',
@@ -93,7 +103,13 @@ export default function CheckoutPage() {
       total,
     };
 
-    const placedOrder = await placeOrder(orderData);
+    let placedOrder;
+    try {
+      placedOrder = await placeOrder(orderData);
+    } catch (error) {
+      dispatch({ type: Actions.SET_TOAST, payload: error.message || 'Unable to place your order. Please try again.' });
+      return;
+    }
 
     setOrderPlaced(placedOrder);
     setShowSuccessPopup(true);

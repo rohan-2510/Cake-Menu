@@ -9,7 +9,7 @@ import { WhatsAppIcon } from './icons/SocialIcons';
 import './Header.css';
 
 export default function Header({ onOpenAuth }) {
-  const { cartCount, isAdmin, isLoggedIn, isGuest, currentUser, dispatch, Actions } = useStore();
+  const { cartCount, isAdmin, isLoggedIn, isGuest, currentUser, dispatch, Actions, logout } = useStore();
   const [isScrolled, setIsScrolled] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const location = useLocation();
@@ -46,7 +46,7 @@ export default function Header({ onOpenAuth }) {
   }
 
   const handleLogout = () => {
-    dispatch({ type: Actions.LOGOUT });
+    logout();
     dispatch({ type: Actions.SET_TOAST, payload: '👋 Logged out successfully' });
   };
 

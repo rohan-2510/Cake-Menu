@@ -17,6 +17,8 @@ import {
   deleteTestimonial as fbDeleteTestimonial,
   saveOrderToFirestore,
   updateOrderStatusInFirestore,
+  logoutUser,
+  fetchOrderById,
   isFirebaseConfigured,
 } from '../services/firebase';
 
@@ -30,49 +32,19 @@ const getStoredState = (key, fallback) => {
   }
 };
 
-const getStoredCancelledOrders = () => {
-  try {
-    const stored = localStorage.getItem('cakeMenu_cancelledOrders');
-    return stored ? JSON.parse(stored) : {};
-  } catch {
-    return {};
-  }
-};
-
-const mergeCancelledIntoOrders = (ordersList, cancelledRegistry) => {
-  if (!ordersList || !Array.isArray(ordersList)) return [];
-  const registry = cancelledRegistry || {};
-  return ordersList.map((ord) => {
-    const cancelInfo = registry[ord.id];
-    if (cancelInfo) {
-      return {
-        ...ord,
-        status: 'cancelled',
-        cancelledBy: cancelInfo.cancelledBy || 'customer',
-        cancelledAt: cancelInfo.cancelledAt || ord.cancelledAt || new Date().toISOString(),
-        cancelReason: cancelInfo.cancelReason || ord.cancelReason || 'Cancelled by customer before approval',
-      };
-    }
-    return {
-      ...ord,
-      status: normalizeOrderStatus(ord.status),
-    };
-  });
-};
-
-const initialCancelledOrders = getStoredCancelledOrders();
+const normalizeOrders = (ordersList) => Array.isArray(ordersList)
+  ? ordersList.map((order) => ({ ...order, status: normalizeOrderStatus(order.status) }))
+  : [];
 
 const initialState = {
   cart: getStoredState('cart', []),
-  cancelledOrders: initialCancelledOrders,
-  orders: mergeCancelledIntoOrders(getStoredState('orders', []), initialCancelledOrders),
+  orders: normalizeOrders(getStoredState('orders', [])),
   menuItems: getStoredState('menuItems', []),
   testimonials: getStoredState('testimonials', []),
   blockedDates: getStoredState('blockedDates', []),
   maxOrdersPerDay: getStoredState('maxOrdersPerDay', MAX_ORDERS_PER_DAY),
   productOverrides: getStoredState('productOverrides', {}),
-  users: getStoredState('users', []),
-  currentUser: getStoredState('currentUser', null), // { name, email, phone, role: 'customer' | 'admin' | 'guest' }
+  currentUser: null,
   toast: null,
 };
 
@@ -91,9 +63,7 @@ const Actions = {
   SET_MAX_ORDERS: 'SET_MAX_ORDERS',
   TOGGLE_PRODUCT_AVAILABILITY: 'TOGGLE_PRODUCT_AVAILABILITY',
   UPDATE_PRODUCT_PRICE: 'UPDATE_PRODUCT_PRICE',
-  REGISTER_USER: 'REGISTER_USER',
   LOGIN_USER: 'LOGIN_USER',
-  ADMIN_LOGIN: 'ADMIN_LOGIN',
   SET_GUEST: 'SET_GUEST',
   LOGOUT: 'LOGOUT',
   SET_TOAST: 'SET_TOAST',
@@ -112,7 +82,7 @@ function storeReducer(state, action) {
     case Actions.SET_ORDERS:
       return {
         ...state,
-        orders: mergeCancelledIntoOrders(action.payload || [], state.cancelledOrders),
+        orders: normalizeOrders(action.payload),
       };
 
     case Actions.ADD_TO_CART: {
@@ -180,22 +150,8 @@ function storeReducer(state, action) {
     }
 
     case Actions.UPDATE_ORDER_STATUS: {
-      const isCustomerCancellation =
-        action.payload.status === 'cancelled' && action.payload.cancelledBy === 'customer';
-      const updatedCancelled = isCustomerCancellation
-        ? {
-            ...state.cancelledOrders,
-            [action.payload.orderId]: {
-              cancelledBy: 'customer',
-              cancelledAt: action.payload.cancelledAt || new Date().toISOString(),
-              cancelReason: action.payload.cancelReason || 'Cancelled by customer before approval',
-            },
-          }
-        : state.cancelledOrders;
-
       return {
         ...state,
-        cancelledOrders: updatedCancelled,
         orders: state.orders.map((order) =>
           order.id === action.payload.orderId
             ? { ...order, ...action.payload }
@@ -247,38 +203,12 @@ function storeReducer(state, action) {
       };
     }
 
-    case Actions.REGISTER_USER: {
-      const newUser = {
-        id: action.payload.uid || `usr_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
-        name: action.payload.name,
-        email: action.payload.email,
-        phone: action.payload.phone,
-        role: action.payload.role || 'customer',
-        createdAt: new Date().toISOString(),
-      };
-      return {
-        ...state,
-        currentUser: newUser,
-      };
-    }
-
     case Actions.LOGIN_USER: {
       return {
         ...state,
         currentUser: action.payload.user,
       };
     }
-
-    case Actions.ADMIN_LOGIN:
-      return {
-        ...state,
-        currentUser: {
-          id: 'admin_root',
-          name: 'Owner Priyanka',
-          email: ADMIN_EMAIL,
-          role: 'admin',
-        },
-      };
 
     case Actions.SET_GUEST:
       return {
@@ -318,6 +248,8 @@ export function StoreProvider({ children }) {
     const unsubscribe = onAuthListener((user) => {
       if (user) {
         dispatch({ type: Actions.LOGIN_USER, payload: { user } });
+      } else {
+        dispatch({ type: Actions.LOGOUT });
       }
     });
     return () => unsubscribe();
@@ -339,9 +271,9 @@ export function StoreProvider({ children }) {
       if (items) {
         dispatch({ type: Actions.SET_TESTIMONIALS, payload: items });
       }
-    });
+    }, undefined, state.currentUser?.role === 'admin');
     return () => unsubscribe();
-  }, []);
+  }, [state.currentUser?.role]);
 
   // 4. Real-time Firestore Orders Sync (active when admin is logged in)
   useEffect(() => {
@@ -357,15 +289,16 @@ export function StoreProvider({ children }) {
 
   // 5. Real-time Firestore Orders Sync for Customer (active when customer is logged in)
   useEffect(() => {
-    if (state.currentUser && state.currentUser.role === 'customer') {
-      const unsubscribe = subscribeCustomerOrders(state.currentUser, (orders) => {
+    const user = state.currentUser;
+    if (user?.uid && user.role === 'customer') {
+      const unsubscribe = subscribeCustomerOrders(user, (orders) => {
         if (orders) {
           dispatch({ type: Actions.SET_ORDERS, payload: orders });
         }
       });
       return () => unsubscribe();
     }
-  }, [state.currentUser?.email, state.currentUser?.phone, state.currentUser?.uid, state.currentUser?.id, state.currentUser?.role]);
+  }, [state.currentUser]);
 
   // Local Storage Persistence
   useEffect(() => {
@@ -385,10 +318,6 @@ export function StoreProvider({ children }) {
   }, [state.orders]);
 
   useEffect(() => {
-    localStorage.setItem('cakeMenu_cancelledOrders', JSON.stringify(state.cancelledOrders || {}));
-  }, [state.cancelledOrders]);
-
-  useEffect(() => {
     localStorage.setItem('cakeMenu_blockedDates', JSON.stringify(state.blockedDates));
   }, [state.blockedDates]);
 
@@ -401,8 +330,14 @@ export function StoreProvider({ children }) {
   }, [state.productOverrides]);
 
   useEffect(() => {
-    localStorage.setItem('cakeMenu_currentUser', JSON.stringify(state.currentUser));
-  }, [state.currentUser]);
+    localStorage.removeItem('cakeMenu_currentUser');
+  }, []);
+
+  useEffect(() => {
+    // Remove passwords saved by older offline-only account versions.
+    localStorage.removeItem('cakeMenu_users');
+    localStorage.removeItem('cakeMenu_cancelledOrders');
+  }, []);
 
   // Auto-clear toast
   useEffect(() => {
@@ -541,53 +476,35 @@ export function StoreProvider({ children }) {
 
   // Orders Operations (Firestore + Local)
   const placeOrder = async (orderData) => {
-    const orderId = orderData.id || `ORD-${Date.now().toString(36).toUpperCase()}`;
+    const orderId = orderData.id || `ORD-${crypto.randomUUID().replaceAll('-', '').toUpperCase()}`;
     const fullOrder = {
       ...orderData,
       id: orderId,
       status: 'pending_approval',
       placedAt: new Date().toISOString(),
     };
-    dispatch({ type: Actions.PLACE_ORDER, payload: fullOrder });
-    try {
-      if (isFirebaseConfigured) {
-        await saveOrderToFirestore(fullOrder);
-      }
-    } catch (err) {
-      console.warn('Failed to save order to Firestore:', err);
+    if (isFirebaseConfigured) {
+      const savedOrder = await saveOrderToFirestore(fullOrder);
+      dispatch({ type: Actions.PLACE_ORDER, payload: savedOrder });
+      return savedOrder;
     }
+    dispatch({ type: Actions.PLACE_ORDER, payload: fullOrder });
     return fullOrder;
   };
 
   const updateOrderStatus = async (orderId, status, extraFields = {}) => {
-    // Edge case: If an order was cancelled by the customer, prevent approving it under all circumstances
-    const isCancelledByCustomer =
-      Boolean(state.cancelledOrders?.[orderId]) ||
-      Boolean(getStoredCancelledOrders()[orderId]) ||
-      state.orders.some(
-        (o) => o.id === orderId && (o.status === 'cancelled' || o.cancelledBy === 'customer')
-      );
-
-    if (isCancelledByCustomer && status !== 'cancelled') {
-      dispatch({
-        type: Actions.SET_TOAST,
-        payload: `⚠️ Order #${orderId} was cancelled by the customer and cannot be approved.`,
-      });
+    if (!isFirebaseConfigured) {
+      dispatch({ type: Actions.SET_TOAST, payload: 'Order updates are unavailable because Firebase is not configured.' });
       return false;
     }
-
-    const payload = { orderId, status, ...extraFields };
-    dispatch({
-      type: Actions.UPDATE_ORDER_STATUS,
-      payload,
-    });
     try {
-      if (isFirebaseConfigured) {
-        await updateOrderStatusInFirestore(orderId, status, extraFields);
-      }
-    } catch (err) {
-      console.warn('Failed to update order status in Firestore:', err);
+      await updateOrderStatusInFirestore(orderId, status, extraFields);
+    } catch (error) {
+      dispatch({ type: Actions.SET_TOAST, payload: `Could not update order: ${error.message}` });
+      return false;
     }
+    const payload = { orderId, status, ...extraFields };
+    dispatch({ type: Actions.UPDATE_ORDER_STATUS, payload });
     return true;
   };
 
@@ -609,7 +526,9 @@ export function StoreProvider({ children }) {
   const isGuest = Boolean(currentUser && currentUser.role === 'guest');
 
   const cancelOrder = async (orderId, reason = '') => {
-    const existingOrder = state.orders.find((o) => o.id === orderId);
+    if (!currentUser?.uid) return false;
+    const existingOrder = state.orders.find((o) => o.id === orderId) || await fetchOrderById(orderId, currentUser.uid);
+    if (!existingOrder || existingOrder.userId !== currentUser.uid) return false;
     // Edge case: Customer can only cancel UNTIL it gets approved
     if (existingOrder && existingOrder.status !== 'pending_approval' && existingOrder.status !== 'cancelled') {
       dispatch({
@@ -625,20 +544,19 @@ export function StoreProvider({ children }) {
       cancelReason: reason || 'Cancelled by customer before approval',
     };
 
-    // Immediately persist to local cancelled registry for bulletproof offline & sync protection
-    try {
-      const stored = getStoredCancelledOrders();
-      stored[orderId] = cancelInfo;
-      localStorage.setItem('cakeMenu_cancelledOrders', JSON.stringify(stored));
-    } catch {
-      // ignore
-    }
-
     const success = await updateOrderStatus(orderId, 'cancelled', cancelInfo);
     if (success) {
       dispatch({ type: Actions.SET_TOAST, payload: '❌ Order cancelled successfully' });
     }
     return success;
+  };
+
+  const logout = async () => {
+    try {
+      await logoutUser();
+    } finally {
+      dispatch({ type: Actions.LOGOUT });
+    }
   };
 
   const value = {
@@ -663,6 +581,7 @@ export function StoreProvider({ children }) {
     placeOrder,
     updateOrderStatus,
     cancelOrder,
+    logout,
   };
 
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>;

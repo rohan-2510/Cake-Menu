@@ -111,20 +111,12 @@ export default function TrackOrderPage() {
   // Compute all orders belonging to the currently logged in customer
   const customerOrders = useMemo(() => {
     if (!currentUser) return [];
-    const targetEmail = (currentUser.email || '').trim().toLowerCase();
-    const targetPhone = (currentUser.phone || '').replace(/\D/g, '');
-    const targetUid = currentUser.uid || currentUser.id;
+    const targetUid = currentUser.uid;
+    if (!targetUid) return [];
 
     return (state.orders || [])
       .filter((o) => {
-        const oEmail = (o.customer?.email || '').trim().toLowerCase();
-        const oPhone = (o.customer?.phone || '').replace(/\D/g, '');
-        const oUid = o.userId || o.customer?.uid;
-        return (
-          (targetEmail && oEmail && oEmail === targetEmail) ||
-          (targetPhone && oPhone && targetPhone.length >= 10 && oPhone === targetPhone) ||
-          (targetUid && oUid && oUid === targetUid)
-        );
+        return o.userId === targetUid;
       })
       .sort((a, b) => new Date(b.placedAt || b.createdAt || 0) - new Date(a.placedAt || a.createdAt || 0));
   }, [state.orders, currentUser]);
@@ -167,6 +159,7 @@ export default function TrackOrderPage() {
     const clean = query.trim().toUpperCase().replace('#', '');
 
     return customerOrders.find((o) => {
+      if (o.userId !== currentUser?.uid) return false;
       const oId = (o.id || '').toUpperCase().replace('#', '');
       return (
         oId === clean ||
@@ -198,7 +191,7 @@ export default function TrackOrderPage() {
       const targetId = cleanId.startsWith('ORD-') ? cleanId : `ORD-${cleanId}`;
 
       try {
-        const remoteOrder = await fetchOrderById(targetId) || await fetchOrderById(cleanId);
+        const remoteOrder = await fetchOrderById(targetId, currentUser?.uid) || await fetchOrderById(cleanId, currentUser?.uid);
         if (remoteOrder) {
           setCurrentOrder(remoteOrder);
           setNotFound(false);
@@ -206,7 +199,7 @@ export default function TrackOrderPage() {
           setNotFound(true);
           setCurrentOrder(null);
         }
-      } catch (err) {
+      } catch {
         setNotFound(true);
       }
     } else {
@@ -221,7 +214,7 @@ export default function TrackOrderPage() {
   useEffect(() => {
     if (!currentOrder?.id || !isFirebaseConfigured) return;
 
-    const unsubscribe = subscribeSingleOrder(currentOrder.id, (updated) => {
+    const unsubscribe = subscribeSingleOrder(currentOrder.id, currentUser?.uid, (updated) => {
       if (updated) {
         setCurrentOrder(updated);
         // Also update local store if present
@@ -233,7 +226,7 @@ export default function TrackOrderPage() {
     });
 
     return () => unsubscribe();
-  }, [currentOrder?.id, dispatch, Actions]);
+  }, [currentOrder?.id, currentUser?.uid, dispatch, Actions]);
 
   // Handle URL param changes
   useEffect(() => {
@@ -389,7 +382,7 @@ export default function TrackOrderPage() {
               </div>
 
               <div className="track-card__meta">
-                {currentStatus === 'pending_approval' && (
+                {currentOrder.userId === currentUser?.uid && currentStatus === 'pending_approval' && (
                   <button
                     type="button"
                     className="btn btn--outline-danger btn--sm"
@@ -449,7 +442,7 @@ export default function TrackOrderPage() {
               </div>
             )}
 
-            {currentStatus === 'pending_approval' && (
+            {currentOrder.userId === currentUser?.uid && currentStatus === 'pending_approval' && (
               <div className="track-approval-notice">
                 <span className="track-approval-notice__icon">⏳</span>
                 <div style={{ flex: 1 }}>

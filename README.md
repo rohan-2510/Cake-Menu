@@ -1,56 +1,70 @@
 # 🎂 Cake Menu — Handcrafted Home Bakery
 
-A modern, mobile-first web application for **Cake Menu**, an artisanal home bakery run by **Priyanka** in **Sirsi, Karnataka**. The website showcases handcrafted, 100% eggless cakes, cupcakes, and brownies, enables direct WhatsApp and online ordering, and features an integrated owner management dashboard.
+A modern, full-stack web application for **Cake Menu**, an artisanal home bakery run by **Priyanka** in **Sirsi, Karnataka**. The platform showcases handcrafted, 100% eggless cakes, cupcakes, and brownies, enables direct WhatsApp and online ordering, real-time order tracking, and features a cloud-synced **Admin Management Dashboard** powered by **Firebase**.
 
 ---
 
 ## ✨ Features
 
 ### 🛍️ Customer Storefront
-- **Artisanal Design & Aesthetics**: Warm, boutique bakery theme with smooth animations, custom Google Fonts (*Playfair Display*, *Inter*, *Dancing Script*), and responsive layouts.
-- **2-Column Mobile Menu**: Optimized side-by-side grid layout for mobile devices for effortless browsing.
-- **Categorized Catalog & Filtering**: Easily explore **Cakes**, **Cupcakes**, **Brownies**, and **Seasonal Specials**.
+- **Artisanal Boutique Design**: Warm terracotta and cream bakery aesthetic with fluid typography (*Playfair Display*, *Inter*, *Dancing Script*) and responsive micro-animations.
+- **2-Column Mobile Menu**: Optimized side-by-side grid layout for seamless browsing on mobile screens.
+- **Categorized Catalog & Filtering**: Browse **Cakes**, **Cupcakes**, **Brownies**, and **Seasonal Specials**.
 - **Dietary & Feature Badges**:
-  - 🟢 **100% Eggless / Pure Veg** tags on every item.
+  - 🟢 **100% Eggless / Pure Veg** indicators on all items.
   - ⭐ **Bestseller** highlights.
-  - 🎨 **Customizable** indicators.
+  - 🎨 **Customizable** options.
   - 🎉 **Seasonal / Festival** specials.
 - **Trust & Storytelling**:
-  - Priyanka's baking story & hygiene standards.
+  - Priyanka's baking journey, hygiene standards, and FSSAI license information.
   - Comprehensive **Allergen Guide** (Dairy, Nuts, Gluten).
-  - Customer review carousel & FSSAI license information.
+  - Dynamic customer testimonials carousel.
 
 ### 🎨 Interactive Product Customizer
-- **Size & Weight Selector**: Live weight selection (0.5 kg, 1.0 kg, 1.5 kg, 2.0 kg / 6-pack, 12-pack).
+- **Size & Weight Selector**: Live weight and quantity selection (0.5 kg, 1.0 kg, 1.5 kg, 2.0 kg / 6-pack, 12-pack).
 - **Flavor Customization**: Dynamic selection of premium flavors (Belgian Chocolate, Dutch Truffle, Rasmalai Fusion, Red Velvet, etc.).
-- **Live Price Updates**: Instant recalculation as sizes and add-ons are chosen.
-- **Message on Cake**: Free-text custom message input with real-time character limit.
-- **Lead Time Indicator**: Displays preparation notice requirements (e.g. *Requires 24h notice*) and computes earliest delivery date.
+- **Real-Time Price Updates**: Automatic price recalculation based on size multiplier and base price.
+- **Message on Cake**: Free-text custom greeting with character limit.
+- **Lead Time Indicator**: Displays preparation notice requirements (e.g. *Requires 24h notice*) and earliest delivery date computation.
 
 ### 🛒 Cart & Localized Checkout
-- **Persistent Cart**: Session storage with real-time item count and subtotal calculations.
-- **Smart Date Picker**: Calendar with lead-time validation (prevents impossible same-day bookings for 24–48h custom cakes and blocks owner-disabled dates).
-- **Time Slot Selector**: Morning (10 AM – 1 PM), Afternoon (2 PM – 5 PM), and Evening (5 PM – 8 PM) with past-hour protection for today.
-- **Sirsi Delivery Address**: Tailored for single-town delivery with flat-rate delivery logic and free delivery above ₹500.
+- **Persistent Cart**: Session storage with real-time item count and subtotal calculation.
+- **Smart Calendar Date Picker**: Calendar with lead-time validation (prevents impossible same-day bookings for custom cakes and blocks owner-disabled dates).
+- **Time Slot Selector**: Morning (10 AM – 1 PM), Afternoon (2 PM – 5 PM), and Evening (5 PM – 8 PM) with past-hour protection for same-day delivery.
+- **Sirsi Delivery Address**: Tailored for local town delivery with flat-rate delivery logic and free delivery above ₹500.
 - **Dual Ordering Pathways**:
-  - 📱 **One-Tap WhatsApp Order (`wa.me`)**: Generates formatted order details, date, time slot, address, and pricing sent directly to Priyanka's WhatsApp (`+91 84314 41492`).
-  - 🛍️ **Online Cash-on-Delivery (COD)**: Places an on-site order with a receipt confirmation.
+  - 📱 **One-Tap WhatsApp Order (`wa.me`)**: Generates pre-formatted order details, delivery address, time slot, and pricing sent directly to Priyanka's WhatsApp (`+91 84314 41492`).
+  - 🛍️ **Online Cash-on-Delivery (COD)**: Places an on-site order saved to Firebase Firestore with instant popup receipt and Order ID.
 
-### 👩‍🍳 Owner Management Dashboard
-- **PIN-Protected Access**: Secure login for the owner (Default PIN: `1234`).
-- **Live Order Pipeline**: Track and advance orders (`Placed` ➔ `Confirmed` ➔ `Preparing` ➔ `Out for Delivery` ➔ `Delivered`).
-- **Capacity & Date Blocker**: Block holidays or fully booked days with one tap, and adjust daily maximum order limits.
-- **Menu & Stock Controls**: Toggle item availability (In Stock / Out of Stock) instantly without deleting products.
+### 📍 Real-Time Order Tracking
+- **Order Tracker (`/track/:orderId`)**: Customers can look up and track order status in real time (`Placed` ➔ `Confirmed` ➔ `Preparing` ➔ `Out for Delivery` ➔ `Delivered`).
+- **Cancellation Window**: Customers can self-cancel orders within 15 minutes of placement directly from the tracking page.
+- **WhatsApp Support Link**: Direct WhatsApp chat link pre-filled with the specific Order ID for quick assistance.
+
+### 👑 Cloud-Synced Admin Dashboard (`/admin`)
+- **Secure Firebase Authentication**: Email & password authentication restricted to the authorized administrator (`admin@cakemenu.com`).
+- **Live Order Pipeline**: Real-time Firestore sync to update order statuses (`Confirmed`, `Preparing`, `Out for Delivery`, `Delivered`, `Cancelled`) with direct customer WhatsApp contact buttons.
+- **Menu Catalog CRUD**:
+  - Add new products and cakes via a modal dialog with custom size variations, multiplier pricing, flavors, and image URL preview.
+  - Edit existing items, adjust base prices, update descriptions, and toggle item availability (In Stock / Out of Stock).
+  - Delete products from the menu catalog.
+- **Customer Testimonials Management**: Add, edit, or remove customer reviews and toggle their visibility on the home page carousel.
+- **Interactive Calendar & Capacity Manager**:
+  - Visual 7-day grid calendar showing blocked dates and booking status.
+  - One-tap date blocking/unblocking for holidays or kitchen capacity limits.
+  - Configurable maximum orders allowed per day.
 
 ---
 
 ## 🛠️ Tech Stack
 
-- **Framework**: [React 19](https://react.dev/) + [Vite](https://vitejs.dev/)
+- **Frontend**: [React 19](https://react.dev/) + [Vite](https://vitejs.dev/)
+- **Backend & Database**: [Firebase Cloud Firestore](https://firebase.google.com/products/firestore) (Realtime Database & Persistence)
+- **Authentication**: [Firebase Auth](https://firebase.google.com/products/auth) (Admin & User Sessions)
 - **Routing**: [React Router v7](https://reactrouter.com/)
 - **Icons**: [Lucide React](https://lucide.dev/)
-- **Styling**: Vanilla CSS Design System with custom design tokens, CSS variables, and fluid typography
-- **State Management**: React Context API with `localStorage` persistence
+- **Styling**: Vanilla CSS Design System with custom design tokens, responsive breakpoints, and CSS variables
+- **State Management**: React Context API (`StoreContext`) synchronized with Firebase Firestore & `localStorage` fallback
 
 ---
 
@@ -59,6 +73,7 @@ A modern, mobile-first web application for **Cake Menu**, an artisanal home bake
 ### Prerequisites
 - [Node.js](https://nodejs.org/) (version 18 or above recommended)
 - `npm` or `yarn`
+- A [Firebase](https://firebase.google.com/) project with **Authentication** (Email/Password) and **Cloud Firestore** enabled
 
 ### Installation
 
@@ -73,12 +88,27 @@ A modern, mobile-first web application for **Cake Menu**, an artisanal home bake
    npm install
    ```
 
-3. **Start the local development server**:
+3. **Configure Environment Variables**:
+   Copy `.env.example` to `.env` and fill in your Firebase project credentials:
+   ```bash
+   cp .env.example .env
+   ```
+
+   ```env
+   VITE_FIREBASE_API_KEY=your_api_key
+   VITE_FIREBASE_AUTH_DOMAIN=your_project.firebaseapp.com
+   VITE_FIREBASE_PROJECT_ID=your_project_id
+   VITE_FIREBASE_STORAGE_BUCKET=your_project.appspot.com
+   VITE_FIREBASE_MESSAGING_SENDER_ID=your_sender_id
+   VITE_FIREBASE_APP_ID=your_app_id
+   ```
+
+4. **Start the local development server**:
    ```bash
    npm run dev
    ```
 
-4. **Open in browser**:
+5. **Open in browser**:
    Navigate to `http://localhost:5173/`
 
 ---
@@ -88,53 +118,64 @@ A modern, mobile-first web application for **Cake Menu**, an artisanal home bake
 ```
 Cake-Menu/
 ├── public/
-│   └── favicon.svg             # Bakery emoji SVG favicon
+│   └── favicon.svg             # Bakery cake SVG favicon
 ├── src/
-│   ├── assets/                 # Static assets & images
+│   ├── assets/                 # Static assets & illustrations
 │   ├── components/             # Reusable UI components
-│   │   ├── Header.jsx          # Navigation header with cart badge & WhatsApp CTA
+│   │   ├── icons/              # Custom SVG social icons (WhatsApp, Instagram)
+│   │   ├── Header.jsx          # Top navigation, cart counter, auth status
 │   │   ├── Header.css
-│   │   ├── Hero.jsx            # Hero section with brand story & stats
+│   │   ├── Hero.jsx            # Hero banner with storytelling & quick stats
 │   │   ├── Hero.css
-│   │   ├── ProductCard.jsx     # Product card with responsive 2-column mobile layout
+│   │   ├── ProductCard.jsx     # Responsive 2-column product card
 │   │   ├── ProductCard.css
-│   │   ├── ProductModal.jsx    # Customizer modal (weights, flavors, messages)
+│   │   ├── ProductModal.jsx    # Interactive product customization modal (portaled)
 │   │   ├── ProductModal.css
 │   │   ├── Testimonials.jsx    # Customer review carousel
 │   │   ├── Testimonials.css
-│   │   ├── Footer.jsx          # Contact info, social links & FSSAI details
+│   │   ├── Footer.jsx          # Quick links, store admin link & FSSAI details
 │   │   └── Footer.css
 │   ├── data/
-│   │   └── products.js         # Menu items, sizes, allergens, config
+│   │   └── products.js         # Initial catalog, sizing presets, allergens & config
 │   ├── pages/
-│   │   ├── HomePage.jsx        # Landing page with bestsellers & full menu
+│   │   ├── HomePage.jsx        # Storefront landing page & menu categories
 │   │   ├── HomePage.css
-│   │   ├── CartPage.jsx        # Persistent cart with subtotal calculation
+│   │   ├── CartPage.jsx        # Cart management & order summary
 │   │   ├── CartPage.css
-│   │   ├── CheckoutPage.jsx    # Date/slot calendar picker & dual checkout
+│   │   ├── CheckoutPage.jsx    # Delivery details, date/slot picker & COD confirmation
 │   │   ├── CheckoutPage.css
-│   │   ├── AdminPage.jsx       # Owner order pipeline & capacity manager
+│   │   ├── TrackOrderPage.jsx  # Live order tracking pipeline & 15-min cancellation
+│   │   ├── TrackOrderPage.css
+│   │   ├── AuthPage.jsx        # Customer sign-in / registration / guest portal
+│   │   ├── AuthPage.css
+│   │   ├── AdminPage.jsx       # Owner dashboard (Orders, Menu CRUD, Reviews, Calendar)
 │   │   └── AdminPage.css
+│   ├── services/
+│   │   └── firebase.js         # Firebase SDK initialization, Auth, & Firestore CRUD
 │   ├── store/
-│   │   └── StoreContext.jsx    # Centralized state & localStorage sync
+│   │   └── StoreContext.jsx    # Global state management & real-time Firestore listeners
 │   ├── utils/
-│   │   └── helpers.js          # Price formatters, lead time & WhatsApp URL generator
-│   ├── App.jsx                 # App root & routing setup
+│   │   └── helpers.js          # Currency formatters, date helpers & WhatsApp generator
+│   ├── App.jsx                 # Route configurations, code splitting & error boundaries
 │   ├── App.css
-│   ├── index.css               # Global design tokens, typography, and reset
-│   └── main.jsx                # Application entry point
-├── index.html                  # HTML template with Google Fonts & SEO meta tags
+│   ├── index.css               # Design tokens, typography & CSS reset
+│   └── main.jsx                # Application root entry point
+├── .env.example                # Sample environment variables for Firebase
 ├── package.json
 └── README.md
 ```
 
 ---
 
-## ⚙️ Configuration
+## ⚙️ Configuration & Credentials
 
-- **WhatsApp Number**: To change the business WhatsApp number, update `OWNER_PHONE` in `src/data/products.js`.
-- **Owner Admin PIN**: Default PIN is set to `1234` in `src/store/StoreContext.jsx`.
-- **Delivery Fee**: Configurable via `DELIVERY_FEE` and `FREE_DELIVERY_ABOVE` in `src/data/products.js`.
+| Setting | Location | Description |
+|---|---|---|
+| **Admin Email** | `src/data/products.js` (`ADMIN_EMAIL`) | Authorized email for dashboard access (`admin@cakemenu.com`) |
+| **Owner WhatsApp** | `src/data/products.js` (`OWNER_PHONE`) | Business WhatsApp number for orders (`+91 84314 41492`) |
+| **Delivery Fee** | `src/data/products.js` (`DELIVERY_FEE`) | Standard delivery fee (default: ₹40) |
+| **Free Delivery Limit** | `src/data/products.js` (`FREE_DELIVERY_ABOVE`) | Order amount for free delivery (default: ₹500) |
+| **Default Max Orders** | `src/data/products.js` (`DEFAULT_MAX_ORDERS_PER_DAY`) | Daily booking limit cap (default: 8) |
 
 ---
 
@@ -146,10 +187,16 @@ To create an optimized production build:
 npm run build
 ```
 
-Preview the production build locally:
+To preview the production bundle locally:
 
 ```bash
 npm run preview
+```
+
+To check for code quality and lint issues:
+
+```bash
+npm run lint
 ```
 
 ---

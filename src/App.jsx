@@ -70,20 +70,6 @@ class ErrorBoundary extends Component {
             <p style={{ color: '#7A7267', fontSize: '0.95rem', marginBottom: '1.5rem', lineHeight: '1.5' }}>
               We encountered an unexpected issue. Please try returning home or reloading.
             </p>
-            {this.state.error?.message && (
-              <pre style={{
-                background: '#FDF3F0',
-                color: '#C05621',
-                padding: '0.75rem',
-                borderRadius: '8px',
-                fontSize: '0.85rem',
-                overflowX: 'auto',
-                textAlign: 'left',
-                marginBottom: '1.5rem'
-              }}>
-                {this.state.error.message}
-              </pre>
-            )}
             <button
               onClick={() => {
                 this.setState({ hasError: false, error: null });

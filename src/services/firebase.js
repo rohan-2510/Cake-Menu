@@ -18,6 +18,7 @@ import {
   getDoc,
   getDocs,
   updateDoc,
+  serverTimestamp,
   deleteDoc,
   onSnapshot,
   query,
@@ -82,9 +83,6 @@ export async function registerCustomer(name, phone, email, password) {
   // 2. Update display name in Firebase Auth
   await updateProfile(user, { displayName: name });
 
-  // 3. Determine role (Admin or Customer)
-  const role = email.toLowerCase() === ADMIN_EMAIL.toLowerCase() ? 'admin' : 'customer';
-
   // 4. Save user profile in Firestore "users" collection
   const userDocRef = doc(db, 'users', user.uid);
   const userData = {
@@ -92,7 +90,7 @@ export async function registerCustomer(name, phone, email, password) {
     name,
     phone,
     email: email.toLowerCase(),
-    role,
+    role: 'customer',
     createdAt: new Date().toISOString(),
   };
 
@@ -117,7 +115,16 @@ export async function loginUser(email, password) {
     const userSnap = await getDoc(userDocRef);
 
     if (userSnap.exists()) {
-      return userSnap.data();
+      const profile = userSnap.data();
+      return {
+        ...profile,
+        uid: user.uid,
+        email: user.email,
+        emailVerified: user.emailVerified,
+        role: user.email?.toLowerCase() === ADMIN_EMAIL.toLowerCase()
+          ? 'admin'
+          : (profile.role || 'customer'),
+      };
     }
   } catch (err) {
     console.warn('Could not read user document from Firestore:', err);
@@ -129,6 +136,7 @@ export async function loginUser(email, password) {
     uid: user.uid,
     name: user.displayName || user.email?.split('@')[0] || 'User',
     email: user.email,
+    emailVerified: user.emailVerified,
     role,
   };
 }
@@ -150,7 +158,9 @@ export function onAuthListener(callback) {
     return () => {};
   }
 
-  return onAuthStateChanged(auth, async (user) => {
+  let cancelled = false;
+
+  const unsubscribe = onAuthStateChanged(auth, async (user) => {
     if (!user) {
       callback(null);
       return;
@@ -160,8 +170,19 @@ export function onAuthListener(callback) {
       if (db) {
         const userDocRef = doc(db, 'users', user.uid);
         const userSnap = await getDoc(userDocRef);
+        // Guard: if signed out during the async fetch, don't dispatch
+        if (cancelled || !auth.currentUser) return;
         if (userSnap.exists()) {
-          callback(userSnap.data());
+          const profile = userSnap.data();
+          callback({
+            ...profile,
+            uid: user.uid,
+            email: user.email,
+            emailVerified: user.emailVerified,
+            role: user.email?.toLowerCase() === ADMIN_EMAIL.toLowerCase()
+              ? 'admin'
+              : (profile.role || 'customer'),
+          });
           return;
         }
       }
@@ -169,14 +190,23 @@ export function onAuthListener(callback) {
       console.warn('Error fetching Firestore user profile:', e);
     }
 
+    // Guard: if signed out during the async operations, don't dispatch
+    if (cancelled || !auth.currentUser) return;
+
     const role = user.email?.toLowerCase() === ADMIN_EMAIL.toLowerCase() ? 'admin' : 'customer';
     callback({
       uid: user.uid,
       name: user.displayName || user.email?.split('@')[0] || 'User',
       email: user.email,
+      emailVerified: user.emailVerified,
       role,
     });
   });
+
+  return () => {
+    cancelled = true;
+    unsubscribe();
+  };
 }
 
 // ============================================
@@ -258,15 +288,16 @@ export async function deleteMenuItem(itemId) {
 /**
  * Subscribe to live changes in "testimonials" collection
  */
-export function subscribeTestimonials(onUpdate, onError) {
+export function subscribeTestimonials(onUpdate, onError, includeHidden = false) {
   if (!isFirebaseConfigured || !db) {
     return () => {};
   }
 
   try {
     const testCol = collection(db, 'testimonials');
+    const visibleReviews = includeHidden ? testCol : query(testCol, where('visible', '==', true));
     return onSnapshot(
-      testCol,
+      visibleReviews,
       (snapshot) => {
         const items = [];
         snapshot.forEach((docSnap) => {
@@ -390,15 +421,14 @@ export function subscribeOrders(onUpdate) {
  */
 export function subscribeCustomerOrders(userInfo, onUpdate, onError) {
   if (!isFirebaseConfigured || !db || !userInfo) return () => {};
-  const { email, phone, uid, id } = userInfo;
-  const targetEmail = (email || '').trim().toLowerCase();
-  const targetPhone = (phone || '').replace(/\D/g, '');
-  const targetUid = uid || id;
+  const uid = userInfo.uid;
+  if (!uid || auth?.currentUser?.uid !== uid) return () => {};
 
   try {
     const ordersCol = collection(db, 'orders');
+    const customerQuery = query(ordersCol, where('userId', '==', uid));
     return onSnapshot(
-      ordersCol,
+      customerQuery,
       (snapshot) => {
         const rawDocs = [];
         snapshot.forEach((docSnap) => {
@@ -406,44 +436,12 @@ export function subscribeCustomerOrders(userInfo, onUpdate, onError) {
         });
         const mergedOrders = mergeCancellationsWithOrders(rawDocs);
 
-        const customerOrders = mergedOrders.filter((order) => {
-          const oEmail = (order.customer?.email || '').trim().toLowerCase();
-          const oPhone = (order.customer?.phone || '').replace(/\D/g, '');
-          const oUid = order.userId || order.customer?.uid;
-
-          const matchEmail = targetEmail && oEmail && oEmail === targetEmail;
-          const matchPhone = targetPhone && oPhone && targetPhone.length >= 10 && oPhone === targetPhone;
-          const matchUid = targetUid && oUid && oUid === targetUid;
-
-          return matchEmail || matchPhone || matchUid;
-        });
-
-        customerOrders.sort((a, b) => new Date(b.placedAt || b.createdAt || 0) - new Date(a.placedAt || a.createdAt || 0));
-        onUpdate(customerOrders);
+        mergedOrders.sort((a, b) => new Date(b.placedAt || b.createdAt || 0) - new Date(a.placedAt || a.createdAt || 0));
+        onUpdate(mergedOrders);
       },
-      async (err) => {
-        console.warn('Customer orders subscription collection snapshot error, trying targeted query:', err);
-        if (targetEmail) {
-          try {
-            const q = query(ordersCol, where('customer.email', '==', targetEmail));
-            return onSnapshot(q, (snapshot) => {
-              const rawDocs = [];
-              snapshot.forEach((docSnap) => {
-                rawDocs.push({ id: docSnap.id, ...docSnap.data() });
-              });
-              const merged = mergeCancellationsWithOrders(rawDocs);
-              merged.sort((a, b) => new Date(b.placedAt || b.createdAt || 0) - new Date(a.placedAt || a.createdAt || 0));
-              onUpdate(merged);
-            }, (qErr) => {
-              console.warn('Targeted customer order query error:', qErr);
-              if (onError) onError(qErr);
-            });
-          } catch (e) {
-            if (onError) onError(e);
-          }
-        } else if (onError) {
-          onError(err);
-        }
+      (err) => {
+        console.warn('Customer orders subscription error:', err);
+        if (onError) onError(err);
       }
     );
   } catch (e) {
@@ -456,35 +454,19 @@ export function subscribeCustomerOrders(userInfo, onUpdate, onError) {
  * Fetch orders for a specific customer from Firestore
  */
 export async function fetchCustomerOrders(userInfo) {
-  if (!isFirebaseConfigured || !db || !userInfo) return [];
-  const { email, phone, uid, id } = userInfo;
-  const targetEmail = (email || '').trim().toLowerCase();
-  const targetPhone = (phone || '').replace(/\D/g, '');
-  const targetUid = uid || id;
+  if (!isFirebaseConfigured || !db || !userInfo?.uid || auth?.currentUser?.uid !== userInfo.uid) return [];
 
   try {
     const ordersCol = collection(db, 'orders');
-    const snapshot = await getDocs(ordersCol);
+    const snapshot = await getDocs(query(ordersCol, where('userId', '==', userInfo.uid)));
     const rawDocs = [];
     snapshot.forEach((docSnap) => {
       rawDocs.push({ id: docSnap.id, ...docSnap.data() });
     });
     const mergedOrders = mergeCancellationsWithOrders(rawDocs);
 
-    const customerOrders = mergedOrders.filter((order) => {
-      const oEmail = (order.customer?.email || '').trim().toLowerCase();
-      const oPhone = (order.customer?.phone || '').replace(/\D/g, '');
-      const oUid = order.userId || order.customer?.uid;
-
-      return (
-        (targetEmail && oEmail && oEmail === targetEmail) ||
-        (targetPhone && oPhone && targetPhone.length >= 10 && oPhone === targetPhone) ||
-        (targetUid && oUid && oUid === targetUid)
-      );
-    });
-
-    customerOrders.sort((a, b) => new Date(b.placedAt || b.createdAt || 0) - new Date(a.placedAt || a.createdAt || 0));
-    return customerOrders;
+    mergedOrders.sort((a, b) => new Date(b.placedAt || b.createdAt || 0) - new Date(a.placedAt || a.createdAt || 0));
+    return mergedOrders;
   } catch (err) {
     console.warn('fetchCustomerOrders error:', err);
     return [];
@@ -495,87 +477,57 @@ export async function fetchCustomerOrders(userInfo) {
  * Save new order to Firestore
  */
 export async function saveOrderToFirestore(orderData) {
-  if (!isFirebaseConfigured || !db) return null;
-  try {
-    const orderId = orderData.id || `ORD-${Date.now().toString(36).toUpperCase()}`;
-    const docRef = doc(db, 'orders', orderId);
-    const data = { ...orderData, id: orderId };
-    await setDoc(docRef, data);
-    return data;
-  } catch (err) {
-    console.warn('Could not save order to Firestore:', err);
-    return null;
+  if (!auth?.currentUser && !orderData.userId) return orderData;
+  if (!db || !auth?.currentUser || orderData.userId !== auth.currentUser.uid) {
+    throw new Error('Sign in with a customer account to place an online order.');
   }
+  const order = {
+    ...orderData,
+    userId: auth.currentUser.uid,
+    status: 'pending_approval',
+  };
+  await setDoc(doc(db, 'orders', order.id), order);
+  return order;
 }
 
 /**
- * Update order status in Firestore (with guaranteed cancellation event persistence)
+ * Update order status in Firestore; security rules authorize the caller and allowed fields
  */
 export async function updateOrderStatusInFirestore(orderId, status, extraFields = {}) {
   if (!isFirebaseConfigured || !db) return;
-
-  // 1. If this is a customer cancellation, create a dedicated cancellation record in 'orders'.
-  // Firestore rules allow 'create' for everyone, so this is guaranteed to succeed!
+  if (!auth?.currentUser) throw new Error('Sign in to update an order.');
+  const update = { status, updatedAt: serverTimestamp() };
   if (status === 'cancelled' && extraFields.cancelledBy === 'customer') {
-    try {
-      const cancelDocRef = doc(db, 'orders', `CANCEL_${orderId}`);
-      await setDoc(cancelDocRef, {
-        type: 'cancellation',
-        targetOrderId: orderId,
-        cancelledBy: 'customer',
-        cancelledAt: extraFields.cancelledAt || new Date().toISOString(),
-        cancelReason: extraFields.cancelReason || 'Cancelled by customer before approval',
-        status: 'cancelled',
-        createdAt: new Date().toISOString(),
-      });
-    } catch (cErr) {
-      console.warn('Could not write cancellation record doc:', cErr);
-    }
+    Object.assign(update, {
+      cancelledBy: 'customer',
+      cancelledAt: serverTimestamp(),
+      cancelReason: extraFields.cancelReason || '',
+    });
+  } else if (status === 'cancelled') {
+    Object.assign(update, {
+      cancelledBy: 'admin',
+      cancelledAt: serverTimestamp(),
+      cancelReason: extraFields.cancelReason || '',
+    });
   }
-
-  // 2. Also try updating/merging into the base order document
-  try {
-    const docRef = doc(db, 'orders', orderId);
-    await setDoc(docRef, {
-      status,
-      ...extraFields,
-      updatedAt: new Date().toISOString(),
-    }, { merge: true });
-  } catch (err) {
-    console.warn('Could not update base order doc in Firestore:', err);
-  }
+  await updateDoc(doc(db, 'orders', orderId), update);
 }
 
 /**
  * Subscribe to a single order for real-time tracking
  */
-export function subscribeSingleOrder(orderId, onUpdate, onError) {
-  if (!isFirebaseConfigured || !db || !orderId) return () => {};
+export function subscribeSingleOrder(orderId, userId, onUpdate, onError) {
+  if (!isFirebaseConfigured || !db || !orderId || !userId || auth?.currentUser?.uid !== userId) return () => {};
 
   try {
     const docRef = doc(db, 'orders', orderId);
     return onSnapshot(
       docRef,
-      async (docSnap) => {
+      (docSnap) => {
         if (docSnap.exists()) {
           const orderData = { id: docSnap.id, ...docSnap.data() };
-          try {
-            const cancelSnap = await getDoc(doc(db, 'orders', `CANCEL_${orderId}`));
-            if (cancelSnap.exists()) {
-              const cData = cancelSnap.data();
-              onUpdate({
-                ...orderData,
-                status: 'cancelled',
-                cancelledBy: cData.cancelledBy || 'customer',
-                cancelledAt: cData.cancelledAt || orderData.cancelledAt || new Date().toISOString(),
-                cancelReason: cData.cancelReason || orderData.cancelReason,
-              });
-              return;
-            }
-          } catch {
-            // ignore
-          }
-          onUpdate(orderData);
+          if (orderData.userId === userId) onUpdate(orderData);
+          else onUpdate(null);
         } else {
           onUpdate(null);
         }
@@ -594,29 +546,14 @@ export function subscribeSingleOrder(orderId, onUpdate, onError) {
 /**
  * Fetch a single order by ID from Firestore
  */
-export async function fetchOrderById(orderId) {
-  if (!isFirebaseConfigured || !db || !orderId) return null;
+export async function fetchOrderById(orderId, userId) {
+  if (!isFirebaseConfigured || !db || !orderId || !userId || auth?.currentUser?.uid !== userId) return null;
   try {
     const docRef = doc(db, 'orders', orderId);
     const snap = await getDoc(docRef);
     if (snap.exists()) {
       const orderData = { id: snap.id, ...snap.data() };
-      try {
-        const cancelSnap = await getDoc(doc(db, 'orders', `CANCEL_${orderId}`));
-        if (cancelSnap.exists()) {
-          const cData = cancelSnap.data();
-          return {
-            ...orderData,
-            status: 'cancelled',
-            cancelledBy: cData.cancelledBy || 'customer',
-            cancelledAt: cData.cancelledAt || orderData.cancelledAt || new Date().toISOString(),
-            cancelReason: cData.cancelReason || orderData.cancelReason,
-          };
-        }
-      } catch {
-        // ignore
-      }
-      return orderData;
+      return orderData.userId === userId ? orderData : null;
     }
     return null;
   } catch (err) {

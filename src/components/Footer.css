@@ -168,6 +168,17 @@
   color: var(--color-gray-500);
 }
 
+.footer__link--admin-portal {
+  font-size: var(--text-xs);
+  opacity: 0.55;
+  margin-top: var(--space-2);
+  transition: opacity var(--transition-fast), color var(--transition-fast);
+}
+
+.footer__link--admin-portal:hover {
+  opacity: 1;
+}
+
 @media (max-width: 768px) {
   .footer__grid {
     grid-template-columns: 1fr;

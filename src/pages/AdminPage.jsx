@@ -1,7 +1,8 @@
 // ============================================
 // Admin Dashboard Page — Firebase Realtime Sync & CRUD Controls
 // ============================================
-import { useState, useMemo } from 'react';
+import { useState, useEffect, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import { Link } from 'react-router-dom';
 import {
   LogOut, Package, Calendar, Settings, ChevronRight,
@@ -11,7 +12,7 @@ import {
 } from 'lucide-react';
 import { WhatsAppIcon } from '../components/icons/SocialIcons';
 import { useStore } from '../store/StoreContext';
-import { ORDER_STATUSES, SIZES, ADMIN_EMAIL, DEFAULT_ADMIN_PASSWORD, normalizeOrderStatus } from '../data/products';
+import { ORDER_STATUSES, SIZES, ADMIN_EMAIL, normalizeOrderStatus } from '../data/products';
 import { loginUser, isFirebaseConfigured } from '../services/firebase';
 import { formatPrice, formatDate, formatDateTime, toDateString } from '../utils/helpers';
 import './AdminPage.css';
@@ -22,6 +23,8 @@ export default function AdminPage() {
     dispatch,
     Actions,
     isAdmin,
+    currentUser,
+    logout,
     addMenuProduct,
     updateMenuProduct,
     deleteMenuProduct,
@@ -61,11 +64,7 @@ export default function AdminPage() {
         }
         dispatch({ type: Actions.LOGIN_USER, payload: { user: { ...user, role: 'admin' } } });
       } else {
-        // Fallback for local testing when Firebase is not connected
-        if (passwordInput !== DEFAULT_ADMIN_PASSWORD) {
-          throw new Error('Incorrect admin password.');
-        }
-        dispatch({ type: Actions.ADMIN_LOGIN });
+        throw new Error('Admin sign-in is unavailable because Firebase is not configured.');
       }
       dispatch({ type: Actions.SET_TOAST, payload: '👑 Welcome back, Store Admin!' });
     } catch (err) {
@@ -199,7 +198,7 @@ export default function AdminPage() {
           </div>
           <button
             className="btn btn--ghost"
-            onClick={() => dispatch({ type: Actions.LOGOUT })}
+            onClick={logout}
             id="admin-logout-btn"
           >
             <LogOut size={18} />
@@ -640,6 +639,23 @@ function MenuPanel({ menuItems, onAdd, onUpdate, onDelete }) {
   const [editingItem, setEditingItem] = useState(null);
   const [isAdding, setIsAdding] = useState(false);
 
+  useEffect(() => {
+    if (isAdding || editingItem) {
+      const handleKeyDown = (e) => {
+        if (e.key === 'Escape') {
+          setIsAdding(false);
+          setEditingItem(null);
+        }
+      };
+      document.body.style.overflow = 'hidden';
+      window.addEventListener('keydown', handleKeyDown);
+      return () => {
+        document.body.style.overflow = '';
+        window.removeEventListener('keydown', handleKeyDown);
+      };
+    }
+  }, [isAdding, editingItem]);
+
   const getDefaultSizes = (category) => {
     const defaults = SIZES[category];
     if (defaults) {
@@ -745,9 +761,17 @@ function MenuPanel({ menuItems, onAdd, onUpdate, onDelete }) {
       </div>
 
       {/* Add / Edit Modal */}
-      {(isAdding || editingItem) && (
-        <div className="admin-modal-backdrop">
-          <div className="admin-modal-card">
+      {(isAdding || editingItem) && createPortal(
+        <div
+          className="admin-modal-backdrop"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              setIsAdding(false);
+              setEditingItem(null);
+            }
+          }}
+        >
+          <div className="admin-modal-card admin-modal-card--lg">
             <div className="admin-modal-header">
               <h3>{editingItem ? 'Edit Menu Product' : 'Add New Cake / Product'}</h3>
               <button
@@ -763,193 +787,197 @@ function MenuPanel({ menuItems, onAdd, onUpdate, onDelete }) {
             </div>
 
             <form onSubmit={handleSave} className="admin-form">
-              <div className="admin-form-grid">
-                <div className="form-group">
-                  <label>Product Name *</label>
-                  <input
-                    type="text"
-                    className="input-field"
-                    placeholder="e.g. Red Velvet Deluxe"
-                    value={formData.name}
-                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                    required
-                  />
-                </div>
-
-                <div className="form-group">
-                  <label>Category</label>
-                  <select
-                    className="input-field"
-                    value={formData.category}
-                    onChange={(e) => {
-                      const newCat = e.target.value;
-                      setFormData({
-                        ...formData,
-                        category: newCat,
-                        sizes: getDefaultSizes(newCat),
-                      });
-                    }}
-                  >
-                    <option value="cakes">Cakes</option>
-                    <option value="cupcakes">Cupcakes</option>
-                    <option value="brownies">Brownies</option>
-                    <option value="seasonal">Seasonal</option>
-                  </select>
-                </div>
-
-                <div className="form-group">
-                  <label>Base Price (₹) *</label>
-                  <input
-                    type="number"
-                    className="input-field"
-                    placeholder="e.g. 500"
-                    value={formData.basePrice}
-                    onChange={(e) => setFormData({ ...formData, basePrice: e.target.value })}
-                    required
-                  />
-                </div>
-              </div>
-
-              {/* Size / Quantity Specification */}
-              <div className="form-group">
-                <label>Size / Quantity Options</label>
-                <p style={{ fontSize: '0.78rem', color: 'var(--color-gray-500)', marginBottom: '8px' }}>
-                  Define available sizes. Price = Base Price × Multiplier.
-                </p>
-                <div className="admin-sizes-list">
-                  {formData.sizes.map((size, idx) => (
-                    <div className="admin-size-row" key={idx}>
-                      <input
-                        type="text"
-                        className="input-field"
-                        placeholder="Label (e.g. 1 kg)"
-                        value={size.label}
-                        onChange={(e) => {
-                          const updated = [...formData.sizes];
-                          updated[idx] = { ...updated[idx], label: e.target.value };
-                          setFormData({ ...formData, sizes: updated });
-                        }}
-                      />
-                      <input
-                        type="text"
-                        className="input-field"
-                        placeholder="Serves (e.g. 8-10)"
-                        value={size.serves}
-                        onChange={(e) => {
-                          const updated = [...formData.sizes];
-                          updated[idx] = { ...updated[idx], serves: e.target.value };
-                          setFormData({ ...formData, sizes: updated });
-                        }}
-                      />
-                      <input
-                        type="number"
-                        className="input-field"
-                        placeholder="Multiplier"
-                        step="0.1"
-                        min="0.1"
-                        value={size.multiplier}
-                        onChange={(e) => {
-                          const updated = [...formData.sizes];
-                          updated[idx] = { ...updated[idx], multiplier: e.target.value };
-                          setFormData({ ...formData, sizes: updated });
-                        }}
-                      />
-                      {formData.basePrice && (
-                        <span className="admin-size-price">
-                          {formatPrice(Math.round(Number(formData.basePrice) * Number(size.multiplier || 1)))}
-                        </span>
-                      )}
-                      <button
-                        type="button"
-                        className="btn btn--sm btn--ghost admin-delete-btn"
-                        onClick={() => {
-                          const updated = formData.sizes.filter((_, i) => i !== idx);
-                          setFormData({ ...formData, sizes: updated.length > 0 ? updated : [{ label: '', serves: '', multiplier: 1 }] });
-                        }}
-                        title="Remove size"
-                      >
-                        <Trash2 size={14} />
-                      </button>
-                    </div>
-                  ))}
-                </div>
-                <button
-                  type="button"
-                  className="btn btn--sm btn--outline"
-                  style={{ marginTop: '8px' }}
-                  onClick={() => setFormData({ ...formData, sizes: [...formData.sizes, { label: '', serves: '', multiplier: 1 }] })}
-                >
-                  <Plus size={14} />
-                  Add Size Option
-                </button>
-              </div>
-
-              <div className="form-group">
-                <label>Flavors (Comma-separated)</label>
-                <input
-                  type="text"
-                  className="input-field"
-                  placeholder="e.g. Chocolate, Vanilla, Strawberry"
-                  value={formData.flavors}
-                  onChange={(e) => setFormData({ ...formData, flavors: e.target.value })}
-                />
-              </div>
-
-              <div className="form-group">
-                <label>Image URL</label>
-                <input
-                  type="url"
-                  className="input-field"
-                  placeholder="https://images.unsplash.com/..."
-                  value={formData.image}
-                  onChange={(e) => setFormData({ ...formData, image: e.target.value })}
-                />
-                {formData.image && (
-                  <div style={{ marginTop: '8px', display: 'flex', alignItems: 'center', gap: '10px' }}>
-                    <img
-                      src={formData.image}
-                      alt="Preview"
-                      style={{
-                        width: '56px',
-                        height: '56px',
-                        objectFit: 'cover',
-                        borderRadius: '8px',
-                        border: '1px solid var(--color-gray-200)'
-                      }}
-                      onError={(e) => {
-                        e.target.style.display = 'none';
-                      }}
+              <div className="admin-modal-body">
+                <div className="admin-form-grid admin-form-grid--3">
+                  <div className="form-group">
+                    <label>Product Name *</label>
+                    <input
+                      type="text"
+                      className="input-field"
+                      placeholder="e.g. Red Velvet Deluxe"
+                      value={formData.name}
+                      onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                      required
                     />
-                    <span style={{ fontSize: '0.78rem', color: 'var(--color-gray-500)' }}>
-                      Image preview (shown on storefront & menu)
-                    </span>
                   </div>
-                )}
-              </div>
 
-              <div className="form-group">
-                <label>Description</label>
-                <textarea
-                  className="input-field"
-                  rows={3}
-                  placeholder="Describe your delicious creation..."
-                  value={formData.description}
-                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                />
-              </div>
+                  <div className="form-group">
+                    <label>Category</label>
+                    <select
+                      className="input-field"
+                      value={formData.category}
+                      onChange={(e) => {
+                        const newCat = e.target.value;
+                        setFormData({
+                          ...formData,
+                          category: newCat,
+                          sizes: getDefaultSizes(newCat),
+                        });
+                      }}
+                    >
+                      <option value="cakes">Cakes</option>
+                      <option value="cupcakes">Cupcakes</option>
+                      <option value="brownies">Brownies</option>
+                      <option value="seasonal">Seasonal</option>
+                    </select>
+                  </div>
 
-              <div className="form-group">
-                <label className="admin-checkbox-label">
-                  <input
-                    type="checkbox"
-                    checked={formData.eggless}
-                    onChange={(e) => setFormData({ ...formData, eggless: e.target.checked })}
+                  <div className="form-group">
+                    <label>Base Price (₹) *</label>
+                    <input
+                      type="number"
+                      className="input-field"
+                      placeholder="e.g. 500"
+                      value={formData.basePrice}
+                      onChange={(e) => setFormData({ ...formData, basePrice: e.target.value })}
+                      required
+                    />
+                  </div>
+                </div>
+
+                {/* Size / Quantity Specification */}
+                <div className="form-group">
+                  <label>Size / Quantity Options</label>
+                  <p style={{ fontSize: '0.78rem', color: 'var(--color-gray-500)', marginBottom: '8px' }}>
+                    Define available sizes. Price = Base Price × Multiplier.
+                  </p>
+                  <div className="admin-sizes-list">
+                    {formData.sizes.map((size, idx) => (
+                      <div className="admin-size-row" key={idx}>
+                        <input
+                          type="text"
+                          className="input-field"
+                          placeholder="Label (e.g. 1 kg)"
+                          value={size.label}
+                          onChange={(e) => {
+                            const updated = [...formData.sizes];
+                            updated[idx] = { ...updated[idx], label: e.target.value };
+                            setFormData({ ...formData, sizes: updated });
+                          }}
+                        />
+                        <input
+                          type="text"
+                          className="input-field"
+                          placeholder="Serves (e.g. 8-10)"
+                          value={size.serves}
+                          onChange={(e) => {
+                            const updated = [...formData.sizes];
+                            updated[idx] = { ...updated[idx], serves: e.target.value };
+                            setFormData({ ...formData, sizes: updated });
+                          }}
+                        />
+                        <input
+                          type="number"
+                          className="input-field"
+                          placeholder="Multiplier"
+                          step="0.1"
+                          min="0.1"
+                          value={size.multiplier}
+                          onChange={(e) => {
+                            const updated = [...formData.sizes];
+                            updated[idx] = { ...updated[idx], multiplier: e.target.value };
+                            setFormData({ ...formData, sizes: updated });
+                          }}
+                        />
+                        {formData.basePrice && (
+                          <span className="admin-size-price">
+                            {formatPrice(Math.round(Number(formData.basePrice) * Number(size.multiplier || 1)))}
+                          </span>
+                        )}
+                        <button
+                          type="button"
+                          className="btn btn--sm btn--ghost admin-delete-btn"
+                          onClick={() => {
+                            const updated = formData.sizes.filter((_, i) => i !== idx);
+                            setFormData({ ...formData, sizes: updated.length > 0 ? updated : [{ label: '', serves: '', multiplier: 1 }] });
+                          }}
+                          title="Remove size"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                  <button
+                    type="button"
+                    className="btn btn--sm btn--outline"
+                    style={{ marginTop: '8px' }}
+                    onClick={() => setFormData({ ...formData, sizes: [...formData.sizes, { label: '', serves: '', multiplier: 1 }] })}
+                  >
+                    <Plus size={14} />
+                    Add Size Option
+                  </button>
+                </div>
+
+                <div className="admin-form-grid">
+                  <div className="form-group">
+                    <label>Flavors (Comma-separated)</label>
+                    <input
+                      type="text"
+                      className="input-field"
+                      placeholder="e.g. Chocolate, Vanilla, Strawberry"
+                      value={formData.flavors}
+                      onChange={(e) => setFormData({ ...formData, flavors: e.target.value })}
+                    />
+                  </div>
+
+                  <div className="form-group">
+                    <label>Image URL</label>
+                    <input
+                      type="url"
+                      className="input-field"
+                      placeholder="https://images.unsplash.com/..."
+                      value={formData.image}
+                      onChange={(e) => setFormData({ ...formData, image: e.target.value })}
+                    />
+                    {formData.image && (
+                      <div style={{ marginTop: '8px', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                        <img
+                          src={formData.image}
+                          alt="Preview"
+                          style={{
+                            width: '44px',
+                            height: '44px',
+                            objectFit: 'cover',
+                            borderRadius: '8px',
+                            border: '1px solid var(--color-gray-200)'
+                          }}
+                          onError={(e) => {
+                            e.target.style.display = 'none';
+                          }}
+                        />
+                        <span style={{ fontSize: '0.78rem', color: 'var(--color-gray-500)' }}>
+                          Preview OK
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <div className="form-group">
+                  <label>Description</label>
+                  <textarea
+                    className="input-field"
+                    rows={2}
+                    placeholder="Describe your delicious creation..."
+                    value={formData.description}
+                    onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                   />
-                  <span>🟢 Eggless Option Available</span>
-                </label>
-                <p style={{ fontSize: '0.78rem', color: 'var(--color-gray-500)', marginTop: '4px' }}>
-                  Check this if this product is available in an eggless / pure veg preparation.
-                </p>
+                </div>
+
+                <div className="form-group">
+                  <label className="admin-checkbox-label">
+                    <input
+                      type="checkbox"
+                      checked={formData.eggless}
+                      onChange={(e) => setFormData({ ...formData, eggless: e.target.checked })}
+                    />
+                    <span>🟢 Eggless Option Available</span>
+                  </label>
+                  <p style={{ fontSize: '0.78rem', color: 'var(--color-gray-500)', marginTop: '4px' }}>
+                    Check this if this product is available in an eggless / pure veg preparation.
+                  </p>
+                </div>
               </div>
 
               <div className="admin-form-actions">
@@ -969,7 +997,8 @@ function MenuPanel({ menuItems, onAdd, onUpdate, onDelete }) {
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* Product List */}
@@ -980,61 +1009,61 @@ function MenuPanel({ menuItems, onAdd, onUpdate, onDelete }) {
       ) : (
         <div className="admin-menu-list">
           {menuItems.map((product) => {
-          const isAvailable = product.available !== false;
-          return (
-            <div className="admin-menu-item" key={product.id} id={`admin-product-${product.id}`}>
-              <div className="admin-menu-item__info">
-                {product.image ? (
-                  <img src={product.image} alt={product.name} className="admin-menu-item__thumb" />
-                ) : (
-                  <span className="admin-menu-item__emoji">
-                    {product.category === 'cakes' ? '🎂' : product.category === 'cupcakes' ? '🧁' : product.category === 'brownies' ? '🍫' : '🎉'}
-                  </span>
-                )}
-                <div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <span className="admin-menu-item__name">{product.name}</span>
-                    <span className="admin-category-badge">{product.category}</span>
+            const isAvailable = product.available !== false;
+            return (
+              <div className="admin-menu-item" key={product.id} id={`admin-product-${product.id}`}>
+                <div className="admin-menu-item__info">
+                  {product.image ? (
+                    <img src={product.image} alt={product.name} className="admin-menu-item__thumb" />
+                  ) : (
+                    <span className="admin-menu-item__emoji">
+                      {product.category === 'cakes' ? '🎂' : product.category === 'cupcakes' ? '🧁' : product.category === 'brownies' ? '🍫' : '🎉'}
+                    </span>
+                  )}
+                  <div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <span className="admin-menu-item__name">{product.name}</span>
+                      <span className="admin-category-badge">{product.category}</span>
+                    </div>
+                    <span className="admin-menu-item__price">Price: {formatPrice(product.basePrice)}</span>
                   </div>
-                  <span className="admin-menu-item__price">Price: {formatPrice(product.basePrice)}</span>
+                </div>
+
+                <div className="admin-menu-item__actions">
+                  <button
+                    className={`admin-toggle ${isAvailable ? 'active' : ''}`}
+                    onClick={() => onUpdate(product.id, { available: !isAvailable })}
+                    title={isAvailable ? 'Click to mark Out of Stock' : 'Click to mark In Stock'}
+                  >
+                    {isAvailable ? <ToggleRight size={28} /> : <ToggleLeft size={28} />}
+                    <span className="admin-toggle__label">{isAvailable ? 'In Stock' : 'Out of Stock'}</span>
+                  </button>
+
+                  <button
+                    className="btn btn--sm btn--outline"
+                    onClick={() => handleOpenEdit(product)}
+                    title="Edit product"
+                  >
+                    <Edit3 size={15} />
+                    <span>Edit</span>
+                  </button>
+
+                  <button
+                    className="btn btn--sm btn--ghost admin-delete-btn"
+                    onClick={() => {
+                      if (window.confirm(`Are you sure you want to delete "${product.name}"?`)) {
+                        onDelete(product.id);
+                      }
+                    }}
+                    title="Delete product"
+                  >
+                    <Trash2 size={15} />
+                  </button>
                 </div>
               </div>
-
-              <div className="admin-menu-item__actions">
-                <button
-                  className={`admin-toggle ${isAvailable ? 'active' : ''}`}
-                  onClick={() => onUpdate(product.id, { available: !isAvailable })}
-                  title={isAvailable ? 'Click to mark Out of Stock' : 'Click to mark In Stock'}
-                >
-                  {isAvailable ? <ToggleRight size={28} /> : <ToggleLeft size={28} />}
-                  <span className="admin-toggle__label">{isAvailable ? 'In Stock' : 'Out of Stock'}</span>
-                </button>
-
-                <button
-                  className="btn btn--sm btn--outline"
-                  onClick={() => handleOpenEdit(product)}
-                  title="Edit product"
-                >
-                  <Edit3 size={15} />
-                  <span>Edit</span>
-                </button>
-
-                <button
-                  className="btn btn--sm btn--ghost admin-delete-btn"
-                  onClick={() => {
-                    if (window.confirm(`Are you sure you want to delete "${product.name}"?`)) {
-                      onDelete(product.id);
-                    }
-                  }}
-                  title="Delete product"
-                >
-                  <Trash2 size={15} />
-                </button>
-              </div>
-            </div>
-          );
-        })}
-      </div>
+            );
+          })}
+        </div>
       )}
     </div>
   );
@@ -1046,6 +1075,23 @@ function MenuPanel({ menuItems, onAdd, onUpdate, onDelete }) {
 function TestimonialsPanel({ testimonials, onAdd, onUpdate, onDelete }) {
   const [isAdding, setIsAdding] = useState(false);
   const [editingItem, setEditingItem] = useState(null);
+
+  useEffect(() => {
+    if (isAdding || editingItem) {
+      const handleKeyDown = (e) => {
+        if (e.key === 'Escape') {
+          setIsAdding(false);
+          setEditingItem(null);
+        }
+      };
+      document.body.style.overflow = 'hidden';
+      window.addEventListener('keydown', handleKeyDown);
+      return () => {
+        document.body.style.overflow = '';
+        window.removeEventListener('keydown', handleKeyDown);
+      };
+    }
+  }, [isAdding, editingItem]);
 
   const initialForm = {
     name: '',
@@ -1114,8 +1160,16 @@ function TestimonialsPanel({ testimonials, onAdd, onUpdate, onDelete }) {
       </div>
 
       {/* Add / Edit Modal */}
-      {(isAdding || editingItem) && (
-        <div className="admin-modal-backdrop">
+      {(isAdding || editingItem) && createPortal(
+        <div
+          className="admin-modal-backdrop"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              setIsAdding(false);
+              setEditingItem(null);
+            }
+          }}
+        >
           <div className="admin-modal-card">
             <div className="admin-modal-header">
               <h3>{editingItem ? 'Edit Testimonial' : 'Add New Testimonial'}</h3>
@@ -1132,54 +1186,56 @@ function TestimonialsPanel({ testimonials, onAdd, onUpdate, onDelete }) {
             </div>
 
             <form onSubmit={handleSave} className="admin-form">
-              <div className="admin-form-grid">
+              <div className="admin-modal-body">
+                <div className="admin-form-grid">
+                  <div className="form-group">
+                    <label>Customer Name *</label>
+                    <input
+                      type="text"
+                      className="input-field"
+                      placeholder="e.g. Rahul S."
+                      value={formData.name}
+                      onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                      required
+                    />
+                  </div>
+
+                  <div className="form-group">
+                    <label>Ordered Product</label>
+                    <input
+                      type="text"
+                      className="input-field"
+                      placeholder="e.g. Belgian Chocolate Truffle"
+                      value={formData.item}
+                      onChange={(e) => setFormData({ ...formData, item: e.target.value })}
+                    />
+                  </div>
+
+                  <div className="form-group">
+                    <label>Rating (1 to 5 Stars)</label>
+                    <select
+                      className="input-field"
+                      value={formData.rating}
+                      onChange={(e) => setFormData({ ...formData, rating: Number(e.target.value) })}
+                    >
+                      <option value="5">⭐⭐⭐⭐⭐ (5 Stars)</option>
+                      <option value="4">⭐⭐⭐⭐ (4 Stars)</option>
+                      <option value="3">⭐⭐⭐ (3 Stars)</option>
+                    </select>
+                  </div>
+                </div>
+
                 <div className="form-group">
-                  <label>Customer Name *</label>
-                  <input
-                    type="text"
+                  <label>Review / Feedback *</label>
+                  <textarea
                     className="input-field"
-                    placeholder="e.g. Rahul S."
-                    value={formData.name}
-                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                    rows={4}
+                    placeholder="What did the customer say about the cake?"
+                    value={formData.text}
+                    onChange={(e) => setFormData({ ...formData, text: e.target.value })}
                     required
                   />
                 </div>
-
-                <div className="form-group">
-                  <label>Ordered Product</label>
-                  <input
-                    type="text"
-                    className="input-field"
-                    placeholder="e.g. Belgian Chocolate Truffle"
-                    value={formData.item}
-                    onChange={(e) => setFormData({ ...formData, item: e.target.value })}
-                  />
-                </div>
-
-                <div className="form-group">
-                  <label>Rating (1 to 5 Stars)</label>
-                  <select
-                    className="input-field"
-                    value={formData.rating}
-                    onChange={(e) => setFormData({ ...formData, rating: Number(e.target.value) })}
-                  >
-                    <option value="5">⭐⭐⭐⭐⭐ (5 Stars)</option>
-                    <option value="4">⭐⭐⭐⭐ (4 Stars)</option>
-                    <option value="3">⭐⭐⭐ (3 Stars)</option>
-                  </select>
-                </div>
-              </div>
-
-              <div className="form-group">
-                <label>Review / Feedback *</label>
-                <textarea
-                  className="input-field"
-                  rows={4}
-                  placeholder="What did the customer say about the cake?"
-                  value={formData.text}
-                  onChange={(e) => setFormData({ ...formData, text: e.target.value })}
-                  required
-                />
               </div>
 
               <div className="admin-form-actions">
@@ -1199,7 +1255,8 @@ function TestimonialsPanel({ testimonials, onAdd, onUpdate, onDelete }) {
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* Testimonials List */}

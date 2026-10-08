@@ -4,12 +4,12 @@
 import { useState } from 'react';
 import { Lock, User, UserPlus, Sparkles, Phone, Mail, ArrowRight, Cake, X, Loader2 } from 'lucide-react';
 import { useStore } from '../store/StoreContext';
-import { SHOP_NAME, ADMIN_EMAIL, DEFAULT_ADMIN_PASSWORD } from '../data/products';
+import { SHOP_NAME, ADMIN_EMAIL } from '../data/products';
 import { registerCustomer, loginUser, isFirebaseConfigured } from '../services/firebase';
 import './AuthPage.css';
 
 export default function AuthPage({ onClose, isModal = false }) {
-  const { state, dispatch, Actions } = useStore();
+  const { dispatch, Actions } = useStore();
   const [tab, setTab] = useState('login'); // 'login' | 'register'
   const [isLoading, setIsLoading] = useState(false);
 
@@ -49,36 +49,7 @@ export default function AuthPage({ onClose, isModal = false }) {
         });
         if (onClose) onClose();
       } else {
-        // 1. Check if Admin Email & Password (fallback)
-        if (
-          trimmedId === ADMIN_EMAIL.toLowerCase() &&
-          loginPassword === DEFAULT_ADMIN_PASSWORD
-        ) {
-          dispatch({ type: Actions.ADMIN_LOGIN });
-          dispatch({ type: Actions.SET_TOAST, payload: '👑 Welcome back, Priyanka (Admin)!' });
-          if (onClose) onClose();
-          return;
-        }
-
-        // 2. Check Customer Accounts (fallback)
-        const foundUser = (state.users || []).find(
-          (u) =>
-            (u.email?.toLowerCase() === trimmedId || u.phone?.replace(/\D/g, '') === trimmedId.replace(/\D/g, '')) &&
-            u.password === loginPassword
-        );
-
-        if (foundUser) {
-          if (foundUser.role === 'admin') {
-            dispatch({ type: Actions.ADMIN_LOGIN });
-            dispatch({ type: Actions.SET_TOAST, payload: `👑 Welcome back, ${foundUser.name}!` });
-          } else {
-            dispatch({ type: Actions.LOGIN_USER, payload: { user: foundUser } });
-            dispatch({ type: Actions.SET_TOAST, payload: `👋 Welcome back, ${foundUser.name}!` });
-          }
-          if (onClose) onClose();
-        } else {
-          dispatch({ type: Actions.SET_TOAST, payload: '❌ Invalid phone/email or password' });
-        }
+        throw new Error('Sign-in is unavailable because Firebase is not configured.');
       }
     } catch (err) {
       let msg = err.message;
@@ -128,30 +99,7 @@ export default function AuthPage({ onClose, isModal = false }) {
         dispatch({ type: Actions.SET_TOAST, payload: `🎉 Account created! Welcome, ${regName.trim()}!` });
         if (onClose) onClose();
       } else {
-        const existing = (state.users || []).find(
-          (u) =>
-            u.phone?.replace(/\D/g, '') === cleanPhone ||
-            (regEmail.trim() && u.email?.toLowerCase() === regEmail.trim().toLowerCase())
-        );
-
-        if (existing) {
-          dispatch({ type: Actions.SET_TOAST, payload: '⚠️ Account exists with this phone or email. Please sign in.' });
-          setTab('login');
-          setLoginIdentifier(cleanPhone);
-          return;
-        }
-
-        dispatch({
-          type: Actions.REGISTER_USER,
-          payload: {
-            name: regName.trim(),
-            phone: regPhone.trim(),
-            email: regEmail.trim(),
-            password: regPassword,
-          },
-        });
-        dispatch({ type: Actions.SET_TOAST, payload: `🎉 Account created! Welcome, ${regName.trim()}!` });
-        if (onClose) onClose();
+        throw new Error('Account creation is unavailable because Firebase is not configured.');
       }
     } catch (err) {
       let msg = err.message;

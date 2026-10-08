@@ -4,8 +4,7 @@
 
 export const OWNER_PHONE = '918431441492';
 export const OWNER_NAME = 'Priyanka';
-export const ADMIN_EMAIL = (import.meta.env?.VITE_ADMIN_EMAIL || 'admin@cakemenu.com').trim();
-export const DEFAULT_ADMIN_PASSWORD = 'admin';
+export const ADMIN_EMAIL = 'admin@cakemenu.com';
 export const SHOP_NAME = 'Cake Menu';
 export const SHOP_TAGLINE = 'Handcrafted home-baked cakes & treats in Sirsi';
 export const SHOP_LOCATION = 'Sirsi, Uttara Kannada, Karnataka';
@@ -13,6 +12,7 @@ export const FSSAI_NUMBER = 'XXXXXXXXXXXXXXXXX'; // Replace with real FSSAI lice
 
 
 export const MAX_ORDERS_PER_DAY = 8;
+export const MAX_ORDER_LINE_ITEMS = 5;
 
 export const TIME_SLOTS = [
   { id: 'morning', label: 'Morning', time: '10:00 AM – 1:00 PM', icon: '🌅' },

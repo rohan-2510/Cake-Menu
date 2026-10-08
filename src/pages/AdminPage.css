@@ -119,7 +119,7 @@
 
 /* Panel Container */
 .admin-panel {
-  animation: authFadeIn 0.25s ease-out;
+  animation: fadeIn 0.2s ease-out;
 }
 
 /* Filter Buttons (Orders Filter Bar) */
@@ -488,17 +488,35 @@
 }
 
 /* Modals */
+@keyframes modalFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes adminModalZoomIn {
+  from {
+    opacity: 0;
+    transform: scale(0.96) translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
 .admin-modal-backdrop {
   position: fixed;
   inset: 0;
   background: rgba(26, 22, 19, 0.65);
-  backdrop-filter: blur(6px);
-  z-index: 100;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  z-index: 10000;
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 1rem;
+  padding: 1.5rem 1rem;
   overflow-y: auto;
+  animation: modalFadeIn 0.2s ease-out;
 }
 
 .admin-modal-card {
@@ -506,25 +524,36 @@
   border-radius: 20px;
   max-width: 580px;
   width: 100%;
-  padding: 2rem;
-  box-shadow: 0 20px 48px rgba(61, 35, 20, 0.2);
-  animation: authFadeIn 0.25s ease-out;
-  max-height: 90vh;
-  overflow-y: auto;
+  max-height: calc(100vh - 3rem);
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 24px 56px rgba(61, 35, 20, 0.25);
+  animation: adminModalZoomIn 0.22s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  overflow: hidden;
+  position: relative;
+  margin: auto;
+  border: 1px solid rgba(255, 255, 255, 0.8);
+}
+
+.admin-modal-card--lg {
+  max-width: 680px;
 }
 
 .admin-modal-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 1.5rem;
-  padding-bottom: 0.75rem;
+  padding: 1.25rem 1.75rem;
   border-bottom: 1px solid var(--color-gray-200, #E8E4DC);
+  background: var(--color-white, #FFFFFF);
+  flex-shrink: 0;
 }
 
 .admin-modal-header h3 {
   font-size: 1.25rem;
   color: var(--color-cocoa, #3D2314);
+  font-weight: 700;
+  margin: 0;
 }
 
 .admin-modal-close {
@@ -537,6 +566,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
+  transition: all 0.15s ease;
 }
 
 .admin-modal-close:hover {
@@ -544,10 +574,63 @@
   color: var(--color-cocoa, #3D2314);
 }
 
+.admin-modal-card .admin-form {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  margin: 0;
+}
+
+.admin-modal-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 1.5rem 1.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  overscroll-behavior: contain;
+}
+
+.admin-modal-body::-webkit-scrollbar {
+  width: 6px;
+}
+.admin-modal-body::-webkit-scrollbar-track {
+  background: var(--color-gray-50, #FAFAF8);
+}
+.admin-modal-body::-webkit-scrollbar-thumb {
+  background: var(--color-gray-300, #C5C0B8);
+  border-radius: 3px;
+}
+.admin-modal-body::-webkit-scrollbar-thumb:hover {
+  background: var(--color-gray-400, #A39E96);
+}
+
 .admin-form-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 1rem;
+}
+
+.admin-form-grid--3 {
+  display: grid;
+  grid-template-columns: 2fr 1.2fr 1fr;
+  gap: 1rem;
+}
+
+@media (max-width: 640px) {
+  .admin-form-grid,
+  .admin-form-grid--3 {
+    grid-template-columns: 1fr;
+  }
+  .admin-modal-body {
+    padding: 1.25rem 1rem;
+  }
+  .admin-modal-header {
+    padding: 1rem 1.25rem;
+  }
 }
 
 /* Size / Quantity Builder */
@@ -603,10 +686,15 @@
 .admin-form-actions {
   display: flex;
   justify-content: flex-end;
+  align-items: center;
   gap: 0.75rem;
-  margin-top: 1.5rem;
-  padding-top: 1rem;
+  padding: 1rem 1.75rem;
   border-top: 1px solid var(--color-gray-200, #E8E4DC);
+  background: var(--color-gray-50, #FAFAF8);
+  flex-shrink: 0;
+  margin-top: 0;
+  border-bottom-left-radius: 20px;
+  border-bottom-right-radius: 20px;
 }
 
 /* Testimonials Panel */
@@ -720,6 +808,92 @@
   justify-content: space-between;
   align-items: center;
   margin-bottom: 1rem;
+}
+
+/* Calendar grid (reused checkout-calendar classes) */
+.admin-calendar .checkout-calendar__nav {
+  background: none;
+  border: 1px solid var(--color-gray-200, #E8E4DC);
+  border-radius: var(--radius-full, 50%);
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: var(--color-cocoa, #3D2314);
+  transition: all var(--transition-fast, 0.15s ease);
+}
+
+.admin-calendar .checkout-calendar__nav:hover {
+  background: var(--color-cream, #FFF3EB);
+  border-color: var(--color-terracotta, #C05621);
+}
+
+.admin-calendar .checkout-calendar__month {
+  font-size: var(--text-base, 1rem);
+  font-weight: 600;
+  color: var(--color-cocoa, #3D2314);
+}
+
+.admin-calendar .checkout-calendar__weekdays {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  padding: var(--space-2, 0.5rem) var(--space-3, 0.75rem);
+  background: var(--color-gray-50, #F9F7F4);
+  border-radius: 8px;
+  margin-bottom: 4px;
+}
+
+.admin-calendar .checkout-calendar__weekdays span {
+  text-align: center;
+  font-size: var(--text-xs, 0.75rem);
+  font-weight: 600;
+  color: var(--color-gray-400, #A39E96);
+  text-transform: uppercase;
+}
+
+.admin-calendar .checkout-calendar__days {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 2px;
+  padding: var(--space-3, 0.75rem) 0;
+}
+
+.admin-calendar .checkout-calendar__day--empty {
+  aspect-ratio: 1;
+}
+
+.admin-calendar .checkout-calendar__day {
+  aspect-ratio: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-md, 8px);
+  font-size: var(--text-sm, 0.875rem);
+  font-weight: 500;
+  color: var(--color-cocoa, #3D2314);
+  cursor: pointer;
+  transition: all var(--transition-fast, 0.15s ease);
+  border: none;
+  background: none;
+}
+
+.admin-calendar .checkout-calendar__day:hover:not(.disabled):not(.blocked) {
+  background: var(--color-cream, #FFF3EB);
+}
+
+.admin-calendar .checkout-calendar__day.blocked {
+  background: var(--color-error, #D32F2F);
+  color: white;
+  font-weight: 700;
+  border-radius: var(--radius-md, 8px);
+}
+
+.admin-calendar .checkout-calendar__day.disabled {
+  color: var(--color-gray-300, #C5C0B8);
+  cursor: not-allowed;
+  opacity: 0.5;
 }
 
 .admin-calendar-hint {
@@ -994,4 +1168,3 @@
   color: #C62828;
   border: 1px solid #FFCDD2;
 }
-

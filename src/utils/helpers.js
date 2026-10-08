@@ -1,7 +1,7 @@
 // ============================================
 // CAKE MENU — Utility Helpers
 // ============================================
-import { OWNER_PHONE } from '../data/products';
+import { OWNER_PHONE, TIME_SLOTS } from '../data/products';
 
 /**
  * Format price in INR
@@ -114,7 +114,7 @@ export function getMaxLeadTime(cartItems, getProduct) {
  * Generate WhatsApp order message
  */
 export function generateWhatsAppMessage(order) {
-  const { items, customer, pickupDate, timeSlot, subtotal, total } = order;
+  const { items, customer, pickupDate, timeSlot, total } = order;
 
   let msg = `🎂 *NEW ORDER REQUEST — Cake Menu*\n`;
   if (order.id) msg += `*Order ID:* #${order.id}\n`;
@@ -134,7 +134,8 @@ export function generateWhatsAppMessage(order) {
   msg += `*Total: ${formatPrice(total)}*\n\n`;
 
   msg += `📅 *Pickup Date:* ${formatDate(pickupDate)}\n`;
-  msg += `🕐 *Time Slot:* ${timeSlot}\n\n`;
+  const selectedSlot = TIME_SLOTS.find((slot) => slot.id === timeSlot);
+  msg += `🕐 *Time Slot:* ${selectedSlot ? `${selectedSlot.label} (${selectedSlot.time})` : timeSlot}\n\n`;
 
   msg += `👤 *Customer:* ${customer.name}\n`;
   msg += `📱 *Phone:* ${customer.phone}\n`;
@@ -163,7 +164,5 @@ export function getWhatsAppUrl(message) {
  * Generate a unique order ID
  */
 export function generateOrderId() {
-  const timestamp = Date.now().toString(36).toUpperCase();
-  const random = Math.random().toString(36).slice(2, 5).toUpperCase();
-  return `CM-${timestamp}-${random}`;
+  return `ORD-${crypto.randomUUID().replaceAll('-', '').toUpperCase()}`;
 }
