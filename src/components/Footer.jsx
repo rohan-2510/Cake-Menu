@@ -40,9 +40,7 @@ export default function Footer() {
             ) : isAdmin ? (
               <a href="/admin" className="footer__link" style={{ opacity: 0.9 }}>👑 Admin Dashboard</a>
             ) : null}
-            <a href="/admin" className="footer__link footer__link--admin-portal">
-              {isAdmin ? '🔧 Manage Store' : '🔒 Store Admin'}
-            </a>
+
           </div>
 
           {/* Contact */}

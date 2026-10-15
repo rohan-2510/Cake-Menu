@@ -48,23 +48,6 @@ export default function Hero() {
               Chat on WhatsApp
             </a>
           </div>
-
-          <div className="hero__stats animate-fade-in-up" style={{ animationDelay: '0.4s' }}>
-            <div className="hero__stat">
-              <span className="hero__stat-number font-display">500+</span>
-              <span className="hero__stat-label">Happy Orders</span>
-            </div>
-            <div className="hero__stat-divider" />
-            <div className="hero__stat">
-              <span className="hero__stat-number font-display">4.9</span>
-              <span className="hero__stat-label">⭐ Rating</span>
-            </div>
-            <div className="hero__stat-divider" />
-            <div className="hero__stat">
-              <span className="hero__stat-number font-display">Both</span>
-              <span className="hero__stat-label">Eggless &amp; Egg</span>
-            </div>
-          </div>
         </div>
 
         <div className="hero__visual animate-fade-in-up" style={{ animationDelay: '0.2s' }}>

@@ -106,7 +106,7 @@ export function isSlotAvailableToday(slotId) {
 export function getMaxLeadTime(cartItems, getProduct) {
   return cartItems.reduce((max, item) => {
     const product = getProduct(item.productId);
-    return Math.max(max, product?.leadTimeHours || 24);
+    return Math.max(max, product?.leadTimeHours || 48);
   }, 0);
 }
 

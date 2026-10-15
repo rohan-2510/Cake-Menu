@@ -1,7 +1,7 @@
 // ============================================
 // CAKE MENU — State Management with Firebase Sync & localStorage
 // ============================================
-import { createContext, useContext, useReducer, useEffect, useCallback } from 'react';
+import { createContext, useContext, useReducer, useEffect, useCallback, useState } from 'react';
 import { MAX_ORDERS_PER_DAY, ADMIN_EMAIL, normalizeOrderStatus } from '../data/products';
 import {
   onAuthListener,
@@ -242,6 +242,7 @@ const StoreContext = createContext(null);
 
 export function StoreProvider({ children }) {
   const [state, dispatch] = useReducer(storeReducer, initialState);
+  const [authReady, setAuthReady] = useState(false);
 
   // 1. Firebase Auth Observer
   useEffect(() => {
@@ -251,6 +252,7 @@ export function StoreProvider({ children }) {
       } else {
         dispatch({ type: Actions.LOGOUT });
       }
+      setAuthReady(true); // Firebase has resolved — safe to render auth-gated routes
     });
     return () => unsubscribe();
   }, []);
@@ -563,6 +565,7 @@ export function StoreProvider({ children }) {
     state,
     dispatch,
     Actions,
+    authReady,
     currentUser,
     isLoggedIn,
     isAdmin,

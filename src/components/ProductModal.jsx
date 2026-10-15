@@ -66,7 +66,7 @@ export default function ProductModal({ product, onClose }) {
 
   const totalPrice = currentPrice * quantity;
 
-  const earliest = getEarliestPickup(product?.leadTimeHours || 24);
+  const earliest = getEarliestPickup(product?.leadTimeHours || 48);
   const earliestStr = formatDate(toDateString(earliest));
 
   const maxMessageLength = 60;
@@ -84,7 +84,7 @@ export default function ProductModal({ product, onClose }) {
         eggPreference,
         customMessage: customMessage.trim(),
         price: currentPrice,
-        leadTimeHours: product.leadTimeHours || 24,
+        leadTimeHours: product.leadTimeHours || 48,
         category: product.category || 'cakes',
       },
     });
@@ -162,14 +162,10 @@ export default function ProductModal({ product, onClose }) {
             <p className="product-modal__desc">{product.description}</p>
 
             <div className="product-modal__info-row">
-              <div className="product-modal__rating">
-                <Star size={14} fill="var(--color-gold)" stroke="var(--color-gold)" />
-                <span>{product.rating || 5.0}</span>
-                <span className="product-modal__review-count">({product.reviews || 1} reviews)</span>
-              </div>
+  
               <div className="product-modal__lead-badge">
                 <Clock size={14} />
-                <span>Requires {product.leadTimeHours || 24}h notice</span>
+                <span>Requires {product.leadTimeHours || 48}h notice</span>
               </div>
             </div>
           </div>

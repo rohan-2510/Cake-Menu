@@ -733,6 +733,7 @@ function MenuPanel({ menuItems, onAdd, onUpdate, onDelete }) {
       allergens: [],
       rating: 5.0,
       reviews: 1,
+      leadTimeHours: 48,
     };
 
     if (editingItem) {

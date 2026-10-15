@@ -103,9 +103,15 @@ function Toast() {
 }
 
 function AppContent() {
-  const { currentUser } = useStore();
+  const { currentUser, authReady } = useStore();
   const [showAuthModal, setShowAuthModal] = useState(false);
   const location = useLocation();
+
+  // While Firebase is still resolving the initial auth state, show a neutral
+  // loader — this prevents the 1-frame flash to the login page on navigation.
+  if (!authReady) {
+    return <PageLoadingFallback />;
+  }
 
   // Allow /admin to render directly without blocking (admin has its own auth)
   const isAdminRoute = location.pathname === '/admin';

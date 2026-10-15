@@ -18,7 +18,7 @@ export default function ProductCard({ product, onQuickView, onAddToCart }) {
     image = '',
     tags = [],
     isCustomizable = false,
-    leadTimeHours = 24,
+    leadTimeHours = 48,
     rating = 5.0,
     reviews = 1,
     available = true,
@@ -64,9 +64,7 @@ export default function ProductCard({ product, onQuickView, onAddToCart }) {
 
         {/* Badges */}
         <div className="product-card__badges">
-          {product.eggless && (
-            <span className="badge badge--veg">🟢 Eggless Available</span>
-          )}
+
           {(tags || []).includes('bestseller') && (
             <span className="badge badge--bestseller">⭐ Bestseller</span>
           )}
@@ -100,11 +98,7 @@ export default function ProductCard({ product, onQuickView, onAddToCart }) {
       {/* Content */}
       <div className="product-card__body">
         <div className="product-card__meta">
-          <div className="product-card__rating">
-            <Star size={13} fill="var(--color-gold)" stroke="var(--color-gold)" />
-            <span>{rating}</span>
-            <span className="product-card__reviews">({reviews})</span>
-          </div>
+
           <div className="product-card__lead-time">
             <Clock size={12} />
             <span>{leadTimeHours}h notice</span>
