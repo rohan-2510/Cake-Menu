@@ -71,9 +71,8 @@ export default function Header({ onOpenAuth }) {
                 <a
                   key={link.to}
                   href={link.to}
-                  className={`header__nav-link ${
-                    link.isAdmin ? 'header__nav-link--admin' : ''
-                  }`}
+                  className={`header__nav-link ${link.isAdmin ? 'header__nav-link--admin' : ''
+                    }`}
                 >
                   {link.label}
                 </a>
@@ -83,9 +82,8 @@ export default function Header({ onOpenAuth }) {
               <Link
                 key={link.to}
                 to={link.to}
-                className={`header__nav-link ${location.pathname === link.to ? 'active' : ''} ${
-                  link.isAdmin ? 'header__nav-link--admin' : ''
-                }`}
+                className={`header__nav-link ${location.pathname === link.to ? 'active' : ''} ${link.isAdmin ? 'header__nav-link--admin' : ''
+                  }`}
               >
                 {link.label}
               </Link>
@@ -226,9 +224,8 @@ export default function Header({ onOpenAuth }) {
                 <Link
                   key={link.to}
                   to={link.to}
-                  className={`header__mobile-link ${location.pathname === link.to ? 'active' : ''} ${
-                    link.isAdmin ? 'header__mobile-link--admin' : ''
-                  }`}
+                  className={`header__mobile-link ${location.pathname === link.to ? 'active' : ''} ${link.isAdmin ? 'header__mobile-link--admin' : ''
+                    }`}
                   onClick={() => setMobileMenuOpen(false)}
                 >
                   {link.label}

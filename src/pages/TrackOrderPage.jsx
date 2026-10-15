@@ -596,9 +596,8 @@ export default function TrackOrderPage() {
                         )}
                         {item.eggPreference && (
                           <span
-                            className={`badge ${
-                              item.eggPreference === 'Eggless' ? 'badge--veg' : 'badge--neutral'
-                            }`}
+                            className={`badge ${item.eggPreference === 'Eggless' ? 'badge--veg' : 'badge--neutral'
+                              }`}
                           >
                             {item.eggPreference === 'Eggless' ? '🟢 Eggless' : '🥚 With Egg'}
                           </span>
