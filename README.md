@@ -1,19 +1,18 @@
-# Cake Menu
+# Cake Menu — Bakery Catalogue & Showcase
 
-Cake Menu is a responsive ordering web app for Priyanka's home bakery in Sirsi, Uttara Kannada. Customers can browse the live menu, customise cakes and treats, submit pickup requests, and track each order as it is approved and prepared.
+Cake Menu is a responsive public-facing bakery catalogue and showcase website for Priyanka's home bakery in Sirsi, Uttara Kannada. Visitors can freely browse freshly baked cakes, cupcakes, brownies, and seasonal specials with real-time updates and an admin-only content management system.
 
 ## Highlights
 
-- Browse cakes, cupcakes, brownies, and seasonal products.
-- Customise product size, flavour, quantity, and a message on the cake.
-- Keep a persistent cart and select an available pickup date and time slot.
-- Submit an order through WhatsApp or as an online order request.
-- Pay on pickup using cash or UPI.
-- Create an account, sign in, or continue as a guest.
-- Track customer orders in real time, including approval, preparation, ready-for-pickup, and completion states.
-- Cancel an order while it is still awaiting baker approval.
-- Manage orders, menu items, testimonials, availability, and blocked dates from the admin dashboard.
-- Use Firebase Authentication and Cloud Firestore when configured, with local browser storage as a development fallback.
+- **Public Bakery Catalogue:** Browse cakes, cupcakes, brownies, and seasonal products without any registration or login required.
+- **Informational Product Details:** View available sizes, prices, flavour choices, preparation options (Eggless / With Egg), and allergen information.
+- **Direct WhatsApp Enquiry:** Connect directly with Priyanka via WhatsApp to enquire about products.
+- **Customer Testimonials:** Read real customer reviews in a carousel with real-time updates.
+- **Dedicated Admin Portal (`/admin/login` & `/admin`):** Only the bakery administrator (`admin@cakemenu.com`) can log in to manage products and reviews.
+- **Product Management CMS:** Add, edit, delete, mark in/out of stock, set prices, and manage sizes/flavours.
+- **Testimonial Management CMS:** Add, edit, delete, and toggle visibility of customer reviews on the website.
+- **Firestore Real-time Subscriptions:** Immediate synchronization for products and testimonials.
+- **Firestore Security Rules:** Server-side access control restricting all writes to the authorized administrator while providing public read-only access.
 
 ## Tech stack
 
@@ -30,7 +29,7 @@ Cake Menu is a responsive ordering web app for Priyanka's home bakery in Sirsi, 
 
 - Node.js 18 or later
 - npm
-- A Firebase project, if you want cloud authentication and data sync
+- A Firebase project for cloud authentication and data sync
 
 ### Install and run
 
@@ -56,7 +55,10 @@ VITE_FIREBASE_MESSAGING_SENDER_ID=your_sender_id
 VITE_FIREBASE_APP_ID=your_app_id
 ```
 
-In Firebase, enable Email/Password authentication and create a Cloud Firestore database. When the Firebase variables are absent, the app remains usable with local storage, but cloud sync and authenticated order management are unavailable.
+Deploy Firestore security rules using Firebase CLI:
+```bash
+firebase deploy --only firestore:rules
+```
 
 ## Available scripts
 
@@ -71,35 +73,26 @@ npm run lint     # Run Oxlint
 
 ```text
 src/
-├── components/  # Shared UI: header, footer, product modal, testimonials
-├── data/        # Shop settings, categories, product and order definitions
-├── pages/       # Home, cart, checkout, auth, tracking, and admin pages
-├── services/    # Firebase setup and Firestore/Auth operations
-├── store/       # Global store, cart state, and real-time subscriptions
-└── utils/       # Pricing, date, and WhatsApp helpers
+├── components/  # Header, footer, product card, product modal, testimonials
+├── data/        # Shop info, categories, default sizes, allergen info
+├── pages/       # HomePage, AdminLoginPage, AdminPage
+├── services/    # Firebase Auth & Firestore CRUD operations
+├── store/       # Global StoreContext with real-time Firestore sync
+└── utils/       # Price and date formatting helpers
 ```
 
 ## Routes
 
-| Route | Purpose |
-| --- | --- |
-| `/` | Menu and storefront |
-| `/cart` | Shopping cart |
-| `/checkout` | Pickup details and order submission |
-| `/track` | Customer order tracking |
-| `/track/:orderId` | A specific order |
-| `/admin` | Bakery administration dashboard |
+| Route | Purpose | Access |
+| --- | --- | --- |
+| `/` | Bakery catalogue, menu, story, testimonials | Public |
+| `/admin/login` | Administrator sign-in portal | Public / Admin |
+| `/admin` | Bakery CMS (Product & Testimonial management) | Protected (Admin only) |
 
 ## Configuration
 
-Business settings such as the owner phone number, shop location, admin email, order capacity, product sizes, and order statuses are maintained in `src/data/products.js`.
-
-The Firebase email that matches the configured admin email receives administrator privileges in the app. Protect production data further with appropriate Firebase Authentication and Firestore security rules.
-
-## Deployment
-
-Run `npm run build` to generate the production files in `dist/`. The repository includes a Vercel rewrite configuration for client-side routing and Firebase hosting configuration.
+Business settings such as the owner phone number, shop location, and admin email are configured in `src/data/products.js`. The Firebase account matching `admin@cakemenu.com` is granted administrator privileges.
 
 ## License
 
-Created for Cake Menu. All rights reserved.
+Created for Priyanka's Cake Menu. All rights reserved.

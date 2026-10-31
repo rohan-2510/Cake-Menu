@@ -10,16 +10,6 @@ export const SHOP_TAGLINE = 'Handcrafted home-baked cakes & treats in Sirsi';
 export const SHOP_LOCATION = 'Sirsi, Uttara Kannada, Karnataka';
 export const FSSAI_NUMBER = 'XXXXXXXXXXXXXXXXX'; // Replace with real FSSAI license
 
-
-export const MAX_ORDERS_PER_DAY = 8;
-export const MAX_ORDER_LINE_ITEMS = 5;
-
-export const TIME_SLOTS = [
-  { id: 'morning', label: 'Morning', time: '10:00 AM – 1:00 PM', icon: '🌅' },
-  { id: 'afternoon', label: 'Afternoon', time: '2:00 PM – 5:00 PM', icon: '☀️' },
-  { id: 'evening', label: 'Evening', time: '5:00 PM – 8:00 PM', icon: '🌇' },
-];
-
 export const CATEGORIES = [
   { id: 'all', label: 'All', icon: '✨' },
   { id: 'cakes', label: 'Cakes', icon: '🎂' },
@@ -54,18 +44,3 @@ export const ALLERGEN_INFO = [
   { name: 'Nuts', icon: '🥜', description: 'May contain walnuts, pistachios, almonds, cashews' },
   { name: 'Gluten', icon: '🌾', description: 'Contains wheat flour (maida, atta)' },
 ];
-
-export const ORDER_STATUSES = [
-  { id: 'pending_approval', label: 'Pending Approval', shortLabel: 'Pending', color: '#F57C00', icon: '⏳' },
-  { id: 'confirmed', label: 'Approved & Confirmed', shortLabel: 'Approved', color: '#2E7D32', icon: '✅' },
-  { id: 'preparing', label: 'Baking & Decorating', shortLabel: 'Baking', color: '#FF9800', icon: '👩‍🍳' },
-  { id: 'ready', label: 'Ready for Pickup', shortLabel: 'Ready', color: '#0288D1', icon: '📦' },
-  { id: 'picked_up', label: 'Picked Up', shortLabel: 'Picked Up', color: '#4CAF50', icon: '🎉' },
-  { id: 'cancelled', label: 'Declined / Cancelled', shortLabel: 'Declined', color: '#D32F2F', icon: '❌' },
-];
-
-export const normalizeOrderStatus = (status) => {
-  if (!status || status === 'placed') return 'pending_approval';
-  return status;
-};
-

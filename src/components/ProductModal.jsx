@@ -1,37 +1,31 @@
 // ============================================
-// ProductModal — Interactive Customizer
+// ProductModal — Product Detail View (Catalogue)
 // ============================================
 import { useState, useMemo, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { X, Star, Clock, ShoppingBag, Minus, Plus, AlertCircle } from 'lucide-react';
-import { SIZES } from '../data/products';
-import { useStore } from '../store/StoreContext';
-import { formatPrice, getEarliestPickup, formatDate, toDateString } from '../utils/helpers';
+import { X, Clock, AlertCircle } from 'lucide-react';
+import { SIZES, OWNER_PHONE } from '../data/products';
+import { formatPrice } from '../utils/helpers';
+import { WhatsAppIcon } from './icons/SocialIcons';
 import './ProductModal.css';
 
 export default function ProductModal({ product, onClose }) {
-  if (!product) return null;
-
-  const { dispatch, Actions } = useStore();
   const [imgError, setImgError] = useState(false);
 
   const tags = Array.isArray(product?.tags) ? product.tags : [];
   const flavors = Array.isArray(product?.flavors)
     ? (product.flavors.length > 0 ? product.flavors : ['Standard'])
-    : typeof product?.flavors === 'string' && product.flavors.trim()
+    : typeof product?.flavors === 'string' && product?.flavors.trim()
     ? product.flavors.split(',').map((f) => f.trim()).filter(Boolean)
     : ['Standard'];
 
   const sizes = SIZES[product?.category] || SIZES.cakes;
   const [selectedSize, setSelectedSize] = useState(sizes[0] || { id: 'std', label: 'Standard', serves: '1-2', multiplier: 1 });
   const [selectedFlavor, setSelectedFlavor] = useState(flavors[0] || 'Standard');
-  const [eggPreference, setEggPreference] = useState('Eggless');
-  const [customMessage, setCustomMessage] = useState('');
-  const [quantity, setQuantity] = useState(1);
-  const [added, setAdded] = useState(false);
 
   // Lock body scroll while modal is open & add Escape key listener
   useEffect(() => {
+    if (!product) return;
     const originalOverflow = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
 
@@ -46,58 +40,26 @@ export default function ProductModal({ product, onClose }) {
       document.body.style.overflow = originalOverflow;
       window.removeEventListener('keydown', handleKeyDown);
     };
-  }, [onClose]);
+  }, [onClose, product]);
 
   // Sync state if product changes
   useEffect(() => {
-    const currentSizes = SIZES[product?.category] || SIZES.cakes;
+    if (!product) return;
+    const currentSizes = SIZES[product.category] || SIZES.cakes;
     setSelectedSize(currentSizes[0] || { id: 'std', label: 'Standard', serves: '1-2', multiplier: 1 });
     setSelectedFlavor(flavors[0] || 'Standard');
-    setEggPreference('Eggless');
-    setCustomMessage('');
-    setQuantity(1);
-    setAdded(false);
     setImgError(false);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [product?.id, product?.category]);
 
   const currentPrice = useMemo(() => {
     return Math.round((product?.basePrice || 0) * (selectedSize?.multiplier || 1));
   }, [product?.basePrice, selectedSize]);
 
-  const totalPrice = currentPrice * quantity;
-
-  const earliest = getEarliestPickup(product?.leadTimeHours || 48);
-  const earliestStr = formatDate(toDateString(earliest));
-
-  const maxMessageLength = 60;
-
-  const handleAddToCart = () => {
-    dispatch({
-      type: Actions.ADD_TO_CART,
-      payload: {
-        productId: product.id,
-        name: product.name,
-        image: product.image,
-        size: selectedSize.id,
-        sizeName: selectedSize.label,
-        flavor: selectedFlavor,
-        eggPreference,
-        customMessage: customMessage.trim(),
-        price: currentPrice,
-        leadTimeHours: product.leadTimeHours || 48,
-        category: product.category || 'cakes',
-      },
-    });
-    dispatch({
-      type: Actions.SET_TOAST,
-      payload: `${product.name} added to cart! 🎉`,
-    });
-    setAdded(true);
-    setTimeout(() => onClose(), 800);
-  };
+  if (!product) return null;
 
   const getCategoryEmoji = () => {
-    switch (product?.category) {
+    switch (product.category) {
       case 'cakes': return '🎂';
       case 'cupcakes': return '🧁';
       case 'brownies': return '🍫';
@@ -105,6 +67,13 @@ export default function ProductModal({ product, onClose }) {
       default: return '🍰';
     }
   };
+
+  // Build WhatsApp enquiry URL
+  const whatsappUrl = (() => {
+    const flavorText = flavors.length > 1 ? `, ${selectedFlavor} flavor` : '';
+    const msg = `Hi Priyanka! 🎂 I'm interested in "${product.name}" (${selectedSize.label}${flavorText}) — ${formatPrice(currentPrice)}. Can you please share more details?`;
+    return `https://wa.me/${OWNER_PHONE}?text=${encodeURIComponent(msg)}`;
+  })();
 
   return createPortal(
     <div
@@ -158,21 +127,20 @@ export default function ProductModal({ product, onClose }) {
                 <span className="badge badge--custom">🎨 Customizable</span>
               )}
             </div>
-            <h2 className="product-modal__name font-display">{product.name}</h2>
+            <h2 className="product-modal__name font-display" id="modal-product-name">{product.name}</h2>
             <p className="product-modal__desc">{product.description}</p>
 
             <div className="product-modal__info-row">
-  
               <div className="product-modal__lead-badge">
                 <Clock size={14} />
-                <span>Requires {product.leadTimeHours || 48}h notice</span>
+                <span>Requires {product.leadTimeHours || 48}h advance notice</span>
               </div>
             </div>
           </div>
 
-          {/* Size Selector */}
+          {/* Size Selector (Informational — shows prices) */}
           <div className="product-modal__section">
-            <h3 className="product-modal__section-title">Select Size</h3>
+            <h3 className="product-modal__section-title">Available Sizes &amp; Prices</h3>
             <div className="product-modal__sizes">
               {sizes.map((size) => (
                 <button
@@ -191,10 +159,10 @@ export default function ProductModal({ product, onClose }) {
             </div>
           </div>
 
-          {/* Flavor Selector */}
+          {/* Flavor Display (Informational) */}
           {flavors.length > 1 && (
             <div className="product-modal__section">
-              <h3 className="product-modal__section-title">Choose Flavor</h3>
+              <h3 className="product-modal__section-title">Available Flavors</h3>
               <div className="product-modal__flavors">
                 {flavors.map((flavor) => (
                   <button
@@ -210,52 +178,18 @@ export default function ProductModal({ product, onClose }) {
             </div>
           )}
 
-          {/* Preparation Preference */}
+          {/* Preparation Info (Informational) */}
           <div className="product-modal__section">
-            <h3 className="product-modal__section-title">Preparation Preference</h3>
-            <div className="product-modal__flavors">
-              <button
-                type="button"
-                className={`product-modal__flavor-btn ${eggPreference === 'Eggless' ? 'active' : ''}`}
-                onClick={() => setEggPreference('Eggless')}
-              >
-                🟢 100% Eggless
-              </button>
-              <button
-                type="button"
-                className={`product-modal__flavor-btn ${eggPreference === 'With Egg' ? 'active' : ''}`}
-                onClick={() => setEggPreference('With Egg')}
-              >
-                🥚 With Egg
-              </button>
-            </div>
+            <h3 className="product-modal__section-title">Preparation Options</h3>
+            <p className="product-modal__info-text">
+              🟢 <strong>100% Eggless</strong> &nbsp;|&nbsp; 🥚 <strong>With Egg</strong> — both options available. Mention your preference when you enquire.
+            </p>
           </div>
 
-          {/* Custom Message */}
-          {product.isCustomizable && (
-            <div className="product-modal__section">
-              <h3 className="product-modal__section-title">
-                Message on Cake <span className="optional">(optional)</span>
-              </h3>
-              <div className="product-modal__message-wrap">
-                <textarea
-                  className="input-field product-modal__message"
-                  placeholder="e.g. Happy Birthday Priya!"
-                  value={customMessage}
-                  onChange={(e) => setCustomMessage(e.target.value.slice(0, maxMessageLength))}
-                  rows={2}
-                  id="cake-message-input"
-                />
-                <span className="product-modal__char-count">
-                  {customMessage.length}/{maxMessageLength}
-                </span>
-              </div>
-            </div>
-          )}
-
           {/* Allergens */}
-          {Array.isArray(product?.allergens) && product.allergens.length > 0 && (
+          {Array.isArray(product.allergens) && product.allergens.length > 0 && (
             <div className="product-modal__allergens">
+              <AlertCircle size={14} />
               <span className="product-modal__allergen-label">Contains:</span>
               {product.allergens.map((a) => (
                 <span key={a} className="product-modal__allergen-tag">{a}</span>
@@ -263,36 +197,18 @@ export default function ProductModal({ product, onClose }) {
             </div>
           )}
 
-          {/* Quantity & Add to Cart */}
+          {/* WhatsApp Enquiry CTA */}
           <div className="product-modal__actions">
-            <div className="product-modal__qty">
-              <button
-                className="product-modal__qty-btn"
-                onClick={() => setQuantity(Math.max(1, quantity - 1))}
-                disabled={quantity <= 1}
-                id="qty-minus"
-              >
-                <Minus size={16} />
-              </button>
-              <span className="product-modal__qty-value">{quantity}</span>
-              <button
-                className="product-modal__qty-btn"
-                onClick={() => setQuantity(quantity + 1)}
-                id="qty-plus"
-              >
-                <Plus size={16} />
-              </button>
-            </div>
-
-            <button
-              className={`btn btn--primary btn--lg product-modal__cart-btn ${added ? 'added' : ''}`}
-              onClick={handleAddToCart}
-              disabled={added}
-              id="add-to-cart-btn"
+            <a
+              href={whatsappUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="btn btn--whatsapp btn--lg product-modal__cart-btn"
+              id="enquire-whatsapp-btn"
             >
-              <ShoppingBag size={18} />
-              {added ? 'Added! ✓' : `Add to Cart — ${formatPrice(totalPrice)}`}
-            </button>
+              <WhatsAppIcon size={20} color="#FFFFFF" />
+              Enquire on WhatsApp — {formatPrice(currentPrice)}
+            </a>
           </div>
         </div>
       </div>

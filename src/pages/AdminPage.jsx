@@ -1,29 +1,22 @@
 // ============================================
-// Admin Dashboard Page — Firebase Realtime Sync & CRUD Controls
+// Admin Dashboard Page — Menu & Testimonials CMS
 // ============================================
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { Link } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import {
-  LogOut, Package, Calendar, Settings, ChevronRight,
-  ChevronLeft, ToggleLeft, ToggleRight, Minus, Plus,
-  ShieldAlert, MessageSquare, PlusCircle, Edit3, Trash2,
-  Check, X, Star, User, Phone
+  LogOut, Settings, MessageSquare, PlusCircle, Edit3, Trash2,
+  Plus, X, Star, ToggleLeft, ToggleRight,
 } from 'lucide-react';
-import { WhatsAppIcon } from '../components/icons/SocialIcons';
 import { useStore } from '../store/StoreContext';
-import { ORDER_STATUSES, SIZES, ADMIN_EMAIL, normalizeOrderStatus } from '../data/products';
-import { loginUser, isFirebaseConfigured } from '../services/firebase';
-import { formatPrice, formatDate, formatDateTime, toDateString } from '../utils/helpers';
+import { SIZES } from '../data/products';
+import { formatPrice } from '../utils/helpers';
 import './AdminPage.css';
 
 export default function AdminPage() {
   const {
     state,
-    dispatch,
-    Actions,
     isAdmin,
-    currentUser,
     logout,
     addMenuProduct,
     updateMenuProduct,
@@ -31,160 +24,23 @@ export default function AdminPage() {
     addCustomerTestimonial,
     updateCustomerTestimonial,
     deleteCustomerTestimonial,
-    updateOrderStatus,
   } = useStore();
 
-  const [activeTab, setActiveTab] = useState('orders');
-  const [calMonth, setCalMonth] = useState(new Date());
-  const [emailInput, setEmailInput] = useState('');
-  const [passwordInput, setPasswordInput] = useState('');
-  const [loginError, setLoginError] = useState('');
-  const [isLoggingIn, setIsLoggingIn] = useState(false);
+  const navigate = useNavigate();
+  const [activeTab, setActiveTab] = useState('products');
 
-  const handleAdminLogin = async (e) => {
-    e.preventDefault();
-    setLoginError('');
-    setIsLoggingIn(true);
-
-    const inputEmail = emailInput.trim().toLowerCase();
-    const authorizedEmail = ADMIN_EMAIL.toLowerCase();
-
-    // Specific admin email check
-    if (inputEmail !== authorizedEmail) {
-      setLoginError(`❌ Access Denied: "${emailInput}" is not authorized. Only "${ADMIN_EMAIL}" can access the Admin Dashboard.`);
-      setIsLoggingIn(false);
-      return;
+  // Guard: redirect non-admins to login
+  useEffect(() => {
+    if (!isAdmin) {
+      navigate('/admin/login', { replace: true });
     }
+  }, [isAdmin, navigate]);
 
-    try {
-      if (isFirebaseConfigured) {
-        const user = await loginUser(inputEmail, passwordInput);
-        if (user.email?.toLowerCase() !== authorizedEmail) {
-          throw new Error(`Email ${user.email} is not authorized for Admin access.`);
-        }
-        dispatch({ type: Actions.LOGIN_USER, payload: { user: { ...user, role: 'admin' } } });
-      } else {
-        throw new Error('Admin sign-in is unavailable because Firebase is not configured.');
-      }
-      dispatch({ type: Actions.SET_TOAST, payload: '👑 Welcome back, Store Admin!' });
-    } catch (err) {
-      let msg = err.message || 'Login failed';
-      if (
-        err.code === 'auth/invalid-credential' ||
-        err.code === 'auth/wrong-password' ||
-        err.code === 'auth/user-not-found'
-      ) {
-        msg = 'Incorrect email or password.';
-      }
-      setLoginError(`❌ ${msg}`);
-    } finally {
-      setIsLoggingIn(false);
-    }
-  };
-
-  // --- Restricted Access View: Email & Password Authentication Only ---
-  if (!isAdmin) {
-    const isLoggedAsNonAdmin = currentUser && currentUser.role !== 'admin';
-
-    return (
-      <div className="admin-page admin-login" id="admin-login">
-        <div className="admin-login__card">
-          <ShieldAlert size={44} className="admin-login__icon" style={{ color: 'var(--color-terracotta)' }} />
-          <h2 className="font-display">Admin Portal</h2>
-          <p style={{ marginTop: '0.5rem', color: 'var(--color-gray-600)', fontSize: '0.9rem' }}>
-            Restricted access. Only the administrator with email <strong>{ADMIN_EMAIL}</strong> can access this dashboard.
-          </p>
-
-          {isLoggedAsNonAdmin && (
-            <div style={{
-              marginTop: '1rem',
-              padding: '0.75rem 1rem',
-              background: 'var(--color-cream, #FFF3EB)',
-              border: '1px solid var(--color-warm-beige, #F4DFC8)',
-              borderRadius: '8px',
-              fontSize: '0.85rem',
-              color: 'var(--color-cocoa, #3D2314)',
-              textAlign: 'left'
-            }}>
-              Currently logged in as: <strong>{currentUser.email || currentUser.name}</strong> (Not Admin). Please sign in with the administrator email.
-            </div>
-          )}
-
-          <form onSubmit={handleAdminLogin} style={{ marginTop: '1.25rem' }}>
-            <div className="form-group" style={{ marginBottom: '1rem', textAlign: 'left' }}>
-              <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, marginBottom: '4px', color: 'var(--color-gray-700)' }}>
-                Admin Email Address *
-              </label>
-              <input
-                type="email"
-                className="input-field"
-                placeholder={ADMIN_EMAIL}
-                value={emailInput}
-                onChange={(e) => setEmailInput(e.target.value)}
-                required
-                autoFocus
-              />
-            </div>
-
-            <div className="form-group" style={{ marginBottom: '1.25rem', textAlign: 'left' }}>
-              <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, marginBottom: '4px', color: 'var(--color-gray-700)' }}>
-                Password *
-              </label>
-              <input
-                type="password"
-                className="input-field"
-                placeholder="Enter admin password"
-                value={passwordInput}
-                onChange={(e) => setPasswordInput(e.target.value)}
-                required
-              />
-            </div>
-
-            {loginError && (
-              <div style={{
-                color: 'var(--color-error, #D32F2F)',
-                fontSize: '0.825rem',
-                marginBottom: '1rem',
-                lineHeight: 1.4,
-                textAlign: 'left'
-              }}>
-                {loginError}
-              </div>
-            )}
-
-            <button type="submit" className="btn btn--primary btn--full" disabled={isLoggingIn}>
-              {isLoggingIn ? 'Verifying Admin...' : 'Sign In as Admin'}
-            </button>
-          </form>
-
-          <div style={{ marginTop: '1rem', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-            <Link to="/" className="btn btn--ghost btn--full" style={{ fontSize: '0.9rem' }}>
-              Back to Home Menu
-            </Link>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  const pendingOrdersCount = (state.orders || []).filter(
-    (o) =>
-      !o.id?.startsWith('CANCEL_') &&
-      o.type !== 'cancellation' &&
-      normalizeOrderStatus(o.status) === 'pending_approval' &&
-      o.status !== 'cancelled' &&
-      o.cancelledBy !== 'customer'
-  ).length;
+  if (!isAdmin) return null;
 
   const tabs = [
-    {
-      id: 'orders',
-      label: pendingOrdersCount > 0 ? `Orders (${pendingOrdersCount} Pending)` : 'Orders',
-      icon: <Package size={18} />
-    },
-    { id: 'menu', label: 'Menu Catalog', icon: <Settings size={18} /> },
+    { id: 'products', label: 'Menu Catalog', icon: <Settings size={18} /> },
     { id: 'testimonials', label: 'Customer Reviews', icon: <MessageSquare size={18} /> },
-    { id: 'calendar', label: 'Capacity & Calendar', icon: <Calendar size={18} /> },
   ];
 
   return (
@@ -208,13 +64,6 @@ export default function AdminPage() {
 
         {/* Stats */}
         <div className="admin-stats">
-          <div className={`admin-stat-card ${pendingOrdersCount > 0 ? 'admin-stat-card--attention' : ''}`}>
-            <span className="admin-stat-card__icon">⏳</span>
-            <div>
-              <span className="admin-stat-card__number">{pendingOrdersCount}</span>
-              <span className="admin-stat-card__label">Pending Approval</span>
-            </div>
-          </div>
           <div className="admin-stat-card">
             <span className="admin-stat-card__icon">🎂</span>
             <div>
@@ -230,10 +79,21 @@ export default function AdminPage() {
             </div>
           </div>
           <div className="admin-stat-card">
-            <span className="admin-stat-card__icon">📅</span>
+            <span className="admin-stat-card__icon">✅</span>
             <div>
-              <span className="admin-stat-card__number">{state.blockedDates?.length || 0}</span>
-              <span className="admin-stat-card__label">Blocked Days</span>
+              <span className="admin-stat-card__number">
+                {(state.menuItems || []).filter((p) => p.available !== false).length}
+              </span>
+              <span className="admin-stat-card__label">Available Items</span>
+            </div>
+          </div>
+          <div className="admin-stat-card">
+            <span className="admin-stat-card__icon">👁️</span>
+            <div>
+              <span className="admin-stat-card__number">
+                {(state.testimonials || []).filter((t) => t.visible !== false).length}
+              </span>
+              <span className="admin-stat-card__label">Visible Reviews</span>
             </div>
           </div>
         </div>
@@ -253,16 +113,8 @@ export default function AdminPage() {
           ))}
         </div>
 
-        {/* Orders Tab */}
-        {activeTab === 'orders' && (
-          <OrdersPanel
-            orders={state.orders}
-            onUpdateStatus={updateOrderStatus}
-          />
-        )}
-
         {/* Menu Catalog Tab */}
-        {activeTab === 'menu' && (
+        {activeTab === 'products' && (
           <MenuPanel
             menuItems={state.menuItems || []}
             onAdd={addMenuProduct}
@@ -280,360 +132,13 @@ export default function AdminPage() {
             onDelete={deleteCustomerTestimonial}
           />
         )}
-
-        {/* Calendar Tab */}
-        {activeTab === 'calendar' && (
-          <CalendarPanel
-            blockedDates={state.blockedDates}
-            maxOrders={state.maxOrdersPerDay}
-            calMonth={calMonth}
-            setCalMonth={setCalMonth}
-            dispatch={dispatch}
-            Actions={Actions}
-          />
-        )}
       </div>
     </div>
   );
 }
 
 // ============================================
-// 1. ORDERS PANEL
-// ============================================
-function OrdersPanel({ orders, onUpdateStatus }) {
-  const [filter, setFilter] = useState('all');
-  const ordersList = useMemo(() => {
-    return (orders || []).filter((o) => !o.id?.startsWith('CANCEL_') && o.type !== 'cancellation');
-  }, [orders]);
-
-  const filteredOrders = useMemo(() => {
-    if (filter === 'all') return ordersList;
-    if (filter === 'pending_approval') {
-      return ordersList.filter(
-        (o) => normalizeOrderStatus(o.status) === 'pending_approval' && o.status !== 'cancelled' && o.cancelledBy !== 'customer'
-      );
-    }
-    return ordersList.filter((o) => normalizeOrderStatus(o.status) === filter);
-  }, [ordersList, filter]);
-
-  const pendingCount = useMemo(() => {
-    return ordersList.filter(
-      (o) => normalizeOrderStatus(o.status) === 'pending_approval' && o.status !== 'cancelled' && o.cancelledBy !== 'customer'
-    ).length;
-  }, [ordersList]);
-
-  return (
-    <div className="admin-panel" id="admin-orders-panel">
-      {pendingCount > 0 && filter !== 'pending_approval' && (
-        <div className="admin-pending-banner">
-          <div className="admin-pending-banner__left">
-            <span className="admin-pending-banner__icon">🔔</span>
-            <div>
-              <strong>{pendingCount} order(s) awaiting your approval!</strong>
-              <p>Customers are waiting for your confirmation. Review requested dates &amp; slots to approve.</p>
-            </div>
-          </div>
-          <button
-            type="button"
-            className="btn btn--sm btn--primary"
-            onClick={() => setFilter('pending_approval')}
-          >
-            Review Pending ({pendingCount})
-          </button>
-        </div>
-      )}
-
-      <div className="admin-filters">
-        <button
-          className={`admin-filter-btn ${filter === 'all' ? 'active' : ''}`}
-          onClick={() => setFilter('all')}
-        >
-          All ({ordersList.length})
-        </button>
-        {ORDER_STATUSES.map(({ id, label, icon }) => {
-          const count = ordersList.filter((o) => {
-            const ordStatus = normalizeOrderStatus(o.status);
-            if (id === 'pending_approval') {
-              return ordStatus === 'pending_approval' && o.status !== 'cancelled' && o.cancelledBy !== 'customer';
-            }
-            return ordStatus === id;
-          }).length;
-          return (
-            <button
-              key={id}
-              className={`admin-filter-btn ${filter === id ? 'active' : ''} ${id === 'pending_approval' && count > 0 ? 'admin-filter-btn--pending' : ''}`}
-              onClick={() => setFilter(id)}
-            >
-              {icon} {label} ({count})
-            </button>
-          );
-        })}
-      </div>
-
-      {filteredOrders.length === 0 ? (
-        <div className="admin-empty">
-          <Package size={48} />
-          <p>No orders found with status "{filter}"</p>
-        </div>
-      ) : (
-        <div className="admin-orders-list">
-          {filteredOrders.map((order) => {
-            const currentStatus = normalizeOrderStatus(order.status);
-            const currentStatusObj = ORDER_STATUSES.find((s) => s.id === currentStatus);
-            return (
-              <div
-                className={`admin-order-card ${currentStatus === 'pending_approval' ? 'admin-order-card--pending' : ''}`}
-                key={order.id}
-              >
-                <div className="admin-order__header">
-                  <div>
-                    <span className="admin-order__id">#{order.id}</span>
-                    <span className={`badge badge--status-${currentStatus}`}>
-                      {currentStatusObj?.icon || '⏳'} {currentStatusObj?.label || currentStatus}
-                    </span>
-                  </div>
-                  <span className="admin-order__date">
-                    {formatDateTime(order.placedAt || order.createdAt)}
-                  </span>
-                </div>
-
-                {/* Priority Approval Card Bar */}
-                {currentStatus === 'pending_approval' && order.status !== 'cancelled' && order.cancelledBy !== 'customer' && (
-                  <div className="admin-order__approval-box">
-                    <div className="admin-order__approval-info">
-                      <span className="admin-order__approval-badge">⏳ Action Required: Review &amp; Approve</span>
-                      <span className="admin-order__approval-text">
-                        Requested Slot: <strong>{formatDate(order.pickupDate || order.deliveryDate)} ({order.timeSlot})</strong>
-                      </span>
-                    </div>
-                    <div className="admin-order__approval-actions">
-                      <button
-                        type="button"
-                        className="btn btn--sm btn--success admin-approval-btn admin-approval-btn--approve"
-                        onClick={() => onUpdateStatus(order.id, 'confirmed')}
-                        title="Approve this order and confirm the customer slot"
-                      >
-                        <Check size={16} /> Approve Order
-                      </button>
-                      <button
-                        type="button"
-                        className="btn btn--sm btn--outline admin-approval-btn admin-approval-btn--decline"
-                        onClick={() => {
-                          if (window.confirm(`Are you sure you want to decline order #${order.id}?`)) {
-                            onUpdateStatus(order.id, 'cancelled', { cancelledBy: 'admin', cancelledAt: new Date().toISOString() });
-                          }
-                        }}
-                        title="Decline this order"
-                      >
-                        <X size={16} /> Decline
-                      </button>
-                    </div>
-                  </div>
-                )}
-
-                {/* Cancelled Info Box */}
-                {currentStatus === 'cancelled' && (
-                  <div
-                    className="admin-order__approval-box"
-                    style={{
-                      background: order.cancelledBy === 'customer' ? '#FEF2F2' : '#FFF3EB',
-                      borderLeft: `4px solid ${order.cancelledBy === 'customer' ? '#EF4444' : '#F97316'}`
-                    }}
-                  >
-                    <div className="admin-order__approval-info">
-                      <span
-                        className="admin-order__approval-badge"
-                        style={{
-                          background: order.cancelledBy === 'customer' ? '#FEE2E2' : '#FFEDD5',
-                          color: order.cancelledBy === 'customer' ? '#991B1B' : '#C2410C'
-                        }}
-                      >
-                        {order.cancelledBy === 'customer' ? '🚫 Cancelled by Customer' : '❌ Declined by Baker'}
-                      </span>
-                      <span className="admin-order__approval-text">
-                        {order.cancelledBy === 'customer'
-                          ? 'The customer cancelled this order before approval. No preparation is required.'
-                          : 'This order request was declined by the baker.'}
-                        {order.cancelledAt && (
-                          <span style={{ display: 'block', fontSize: '0.8rem', color: '#6B7280', marginTop: '2px' }}>
-                            Cancelled: {formatDateTime(order.cancelledAt)}
-                          </span>
-                        )}
-                      </span>
-                    </div>
-                  </div>
-                )}
-
-                {/* Next Steps Quick Actions for Active Workflow */}
-                {currentStatus === 'confirmed' && (
-                  <div className="admin-order__next-steps">
-                    <span className="admin-order__next-label">✅ Order Approved! Next Step:</span>
-                    <div className="admin-order__next-actions">
-                      <button
-                        type="button"
-                        className="btn btn--sm btn--primary"
-                        onClick={() => onUpdateStatus(order.id, 'preparing')}
-                      >
-                        👩‍🍳 Start Baking
-                      </button>
-                      <a
-                        href={`https://wa.me/91${order.customer?.phone?.replace(/\D/g, '')}?text=${encodeURIComponent(
-                          `Hi ${order.customer?.name}! 👋 Great news! Your Cake Menu order #${order.id} has been APPROVED by Priyanka. We have confirmed your pickup slot for ${formatDate(order.pickupDate || order.deliveryDate)} (${order.timeSlot}). Thank you!`
-                        )}`}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="btn btn--sm btn--whatsapp-outline"
-                      >
-                        <WhatsAppIcon size={14} /> Send WhatsApp Approval
-                      </a>
-                    </div>
-                  </div>
-                )}
-
-                {currentStatus === 'preparing' && (
-                  <div className="admin-order__next-steps">
-                    <span className="admin-order__next-label">👩‍🍳 Currently baking in kitchen:</span>
-                    <div className="admin-order__next-actions">
-                      <button
-                        type="button"
-                        className="btn btn--sm btn--primary"
-                        onClick={() => onUpdateStatus(order.id, 'ready')}
-                      >
-                        📦 Mark Ready for Pickup
-                      </button>
-                    </div>
-                  </div>
-                )}
-
-                {currentStatus === 'ready' && (
-                  <div className="admin-order__next-steps">
-                    <span className="admin-order__next-label">📦 Ready &amp; waiting for pickup:</span>
-                    <div className="admin-order__next-actions">
-                      <button
-                        type="button"
-                        className="btn btn--sm btn--success"
-                        onClick={() => onUpdateStatus(order.id, 'picked_up')}
-                      >
-                        🎉 Mark Picked Up
-                      </button>
-                      <a
-                        href={`https://wa.me/91${order.customer?.phone?.replace(/\D/g, '')}?text=${encodeURIComponent(
-                          `Hi ${order.customer?.name}! 🎉 Your cake (Order #${order.id}) is freshly baked, packed, and READY FOR PICKUP at Cake Menu, Sirsi! See you soon!`
-                        )}`}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="btn btn--sm btn--whatsapp-outline"
-                      >
-                        <WhatsAppIcon size={14} /> Notify Customer Ready
-                      </a>
-                    </div>
-                  </div>
-                )}
-
-                <div className="admin-order__customer">
-                  <div className="admin-order__customer-item">
-                    <User size={14} />
-                    <span>{order.customer?.name}</span>
-                  </div>
-                  <div className="admin-order__customer-item">
-                    <Phone size={14} />
-                    <a href={`tel:${order.customer?.phone}`}>{order.customer?.phone}</a>
-                    <a
-                      href={`https://wa.me/91${order.customer?.phone?.replace(/\D/g, '')}`}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="admin-order__wa-link"
-                      title="Chat on WhatsApp"
-                      aria-label="Chat on WhatsApp"
-                    >
-                      <WhatsAppIcon size={14} />
-                    </a>
-                  </div>
-                  {order.customer?.notes && (
-                    <div className="admin-order__customer-item">
-                      <span>📝 Note: {order.customer?.notes}</span>
-                    </div>
-                  )}
-                  <div className="admin-order__delivery-info">
-                    <span>📅 Pickup: <strong>{formatDate(order.pickupDate || order.deliveryDate)}</strong></span>
-                    <span>⏰ Slot: <strong>{order.timeSlot}</strong></span>
-                  </div>
-                </div>
-
-                <div className="admin-order__items">
-                  {order.items?.map((item, i) => (
-                    <div className="admin-order__item" key={i}>
-                      <span>{item.name} ({item.size}) x{item.quantity}</span>
-                      {item.flavor && <span className="admin-order__item-sub">Flavor: {item.flavor}</span>}
-                      {item.eggPreference && (
-                        <span className="admin-order__item-sub" style={{ fontWeight: 600, color: item.eggPreference === 'Eggless' ? 'var(--color-veg, #2E7D32)' : 'var(--color-terracotta)' }}>
-                          {item.eggPreference === 'Eggless' ? '🟢 Eggless' : '🥚 With Egg'}
-                        </span>
-                      )}
-                      {item.customMessage && (
-                        <span className="admin-order__item-sub admin-order__item-msg">
-                          💬 "{item.customMessage}"
-                        </span>
-                      )}
-                      <span className="admin-order__item-price">{formatPrice(item.price * item.quantity)}</span>
-                    </div>
-                  ))}
-                </div>
-
-                <div className="admin-order__footer">
-                  <span className="admin-order__total">Total: {formatPrice(order.total)}</span>
-                  <div className="admin-order__status-actions">
-                    <label htmlFor={`status-${order.id}`}>Status: </label>
-                    {order.cancelledBy === 'customer' || order.status === 'cancelled' ? (
-                      <span
-                        className="admin-status-badge"
-                        style={{
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          gap: '6px',
-                          padding: '4px 12px',
-                          borderRadius: '20px',
-                          background: order.cancelledBy === 'customer' ? '#FEE2E2' : '#FFF3EB',
-                          color: order.cancelledBy === 'customer' ? '#991B1B' : '#C2410C',
-                          fontWeight: 600,
-                          fontSize: '0.85rem'
-                        }}
-                      >
-                        {order.cancelledBy === 'customer'
-                          ? '🚫 Cancelled by Customer (Locked)'
-                          : '❌ Declined by Baker (Locked)'}
-                      </span>
-                    ) : (
-                      <select
-                        id={`status-${order.id}`}
-                        value={currentStatus}
-                        onChange={(e) =>
-                          onUpdateStatus
-                            ? onUpdateStatus(order.id, e.target.value)
-                            : null
-                        }
-                        className="admin-status-select"
-                      >
-                        {ORDER_STATUSES.map(({ id, label, icon }) => (
-                          <option key={id} value={id}>
-                            {icon} {label}
-                          </option>
-                        ))}
-                      </select>
-                    )}
-                  </div>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      )}
-    </div>
-  );
-}
-
-// ============================================
-// 2. MENU CATALOG PANEL (CRUD)
+// 1. MENU CATALOG PANEL (CRUD)
 // ============================================
 function MenuPanel({ menuItems, onAdd, onUpdate, onDelete }) {
   const [editingItem, setEditingItem] = useState(null);
@@ -943,9 +448,7 @@ function MenuPanel({ menuItems, onAdd, onUpdate, onDelete }) {
                             borderRadius: '8px',
                             border: '1px solid var(--color-gray-200)'
                           }}
-                          onError={(e) => {
-                            e.target.style.display = 'none';
-                          }}
+                          onError={(e) => { e.target.style.display = 'none'; }}
                         />
                         <span style={{ fontSize: '0.78rem', color: 'var(--color-gray-500)' }}>
                           Preview OK
@@ -1071,7 +574,7 @@ function MenuPanel({ menuItems, onAdd, onUpdate, onDelete }) {
 }
 
 // ============================================
-// 3. TESTIMONIALS PANEL (CRUD)
+// 2. TESTIMONIALS PANEL (CRUD)
 // ============================================
 function TestimonialsPanel({ testimonials, onAdd, onUpdate, onDelete }) {
   const [isAdding, setIsAdding] = useState(false);
@@ -1202,7 +705,7 @@ function TestimonialsPanel({ testimonials, onAdd, onUpdate, onDelete }) {
                   </div>
 
                   <div className="form-group">
-                    <label>Ordered Product</label>
+                    <label>Product Ordered</label>
                     <input
                       type="text"
                       className="input-field"
@@ -1236,6 +739,20 @@ function TestimonialsPanel({ testimonials, onAdd, onUpdate, onDelete }) {
                     onChange={(e) => setFormData({ ...formData, text: e.target.value })}
                     required
                   />
+                </div>
+
+                <div className="form-group">
+                  <label className="admin-checkbox-label">
+                    <input
+                      type="checkbox"
+                      checked={formData.visible}
+                      onChange={(e) => setFormData({ ...formData, visible: e.target.checked })}
+                    />
+                    <span>👁️ Visible on website</span>
+                  </label>
+                  <p style={{ fontSize: '0.78rem', color: 'var(--color-gray-500)', marginTop: '4px' }}>
+                    Uncheck to hide this review from the public carousel.
+                  </p>
                 </div>
               </div>
 
@@ -1274,10 +791,24 @@ function TestimonialsPanel({ testimonials, onAdd, onUpdate, onDelete }) {
                   <strong>{t.name}</strong>
                   {t.item && <span className="admin-test-card__item">Ordered: {t.item}</span>}
                 </div>
-                <div className="admin-test-card__stars">
-                  {Array.from({ length: Number(t.rating) || 5 }).map((_, i) => (
-                    <Star key={i} size={14} fill="var(--color-gold)" stroke="var(--color-gold)" />
-                  ))}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <div className="admin-test-card__stars">
+                    {Array.from({ length: Number(t.rating) || 5 }).map((_, i) => (
+                      <Star key={i} size={14} fill="var(--color-gold)" stroke="var(--color-gold)" />
+                    ))}
+                  </div>
+                  {/* Visible toggle */}
+                  <button
+                    className={`admin-toggle admin-toggle--sm ${t.visible !== false ? 'active' : ''}`}
+                    onClick={() => onUpdate(t.id, { visible: t.visible === false ? true : false })}
+                    title={t.visible !== false ? 'Click to hide from website' : 'Click to show on website'}
+                    style={{ fontSize: '0.75rem' }}
+                  >
+                    {t.visible !== false ? <ToggleRight size={22} /> : <ToggleLeft size={22} />}
+                    <span className="admin-toggle__label" style={{ fontSize: '0.72rem' }}>
+                      {t.visible !== false ? 'Visible' : 'Hidden'}
+                    </span>
+                  </button>
                 </div>
               </div>
 
@@ -1307,91 +838,6 @@ function TestimonialsPanel({ testimonials, onAdd, onUpdate, onDelete }) {
           ))}
         </div>
       )}
-    </div>
-  );
-}
-
-// ============================================
-// 4. CALENDAR & CAPACITY PANEL
-// ============================================
-function CalendarPanel({ blockedDates, maxOrders, calMonth, setCalMonth, dispatch, Actions }) {
-  const year = calMonth.getFullYear();
-  const month = calMonth.getMonth();
-  const firstDay = new Date(year, month, 1).getDay();
-  const daysInMonth = new Date(year, month + 1, 0).getDate();
-  const today = toDateString(new Date());
-
-  const days = [];
-  for (let i = 0; i < firstDay; i++) days.push(null);
-  for (let d = 1; d <= daysInMonth; d++) {
-    const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
-    const isPast = dateStr < today;
-    const isBlocked = blockedDates.includes(dateStr);
-    days.push({ day: d, dateStr, isPast, isBlocked });
-  }
-
-  return (
-    <div className="admin-panel" id="admin-calendar-panel">
-      <div className="admin-calendar-controls">
-        <h3>Max Orders Per Day</h3>
-        <div className="admin-max-orders">
-          <button
-            className="admin-max-orders__btn"
-            onClick={() => dispatch({ type: Actions.SET_MAX_ORDERS, payload: Math.max(1, maxOrders - 1) })}
-          >
-            <Minus size={16} />
-          </button>
-          <span className="admin-max-orders__value">{maxOrders}</span>
-          <button
-            className="admin-max-orders__btn"
-            onClick={() => dispatch({ type: Actions.SET_MAX_ORDERS, payload: maxOrders + 1 })}
-          >
-            <Plus size={16} />
-          </button>
-        </div>
-      </div>
-
-      <div className="admin-calendar">
-        <div className="admin-calendar__header">
-          <button onClick={() => setCalMonth(new Date(year, month - 1))} className="checkout-calendar__nav">
-            <ChevronLeft size={18} />
-          </button>
-          <span className="checkout-calendar__month font-display">
-            {calMonth.toLocaleString('en-IN', { month: 'long', year: 'numeric' })}
-          </span>
-          <button onClick={() => setCalMonth(new Date(year, month + 1))} className="checkout-calendar__nav">
-            <ChevronRight size={18} />
-          </button>
-        </div>
-
-        <div className="checkout-calendar__weekdays">
-          {['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'].map((d) => (
-            <span key={d}>{d}</span>
-          ))}
-        </div>
-
-        <div className="checkout-calendar__days">
-          {days.map((day, i) =>
-            day === null ? (
-              <span key={`e-${i}`} className="checkout-calendar__day--empty" />
-            ) : (
-              <button
-                key={day.dateStr}
-                className={`checkout-calendar__day ${day.isBlocked ? 'blocked' : ''} ${day.isPast ? 'disabled' : ''}`}
-                onClick={() => !day.isPast && dispatch({ type: Actions.TOGGLE_DATE_BLOCK, payload: day.dateStr })}
-                disabled={day.isPast}
-                style={day.isBlocked ? { background: 'var(--color-error)', color: 'white' } : {}}
-              >
-                {day.day}
-              </button>
-            )
-          )}
-        </div>
-      </div>
-
-      <p className="admin-calendar-hint">
-        🔴 Tap a date to block/unblock it. Blocked dates will be unavailable for customers.
-      </p>
     </div>
   );
 }

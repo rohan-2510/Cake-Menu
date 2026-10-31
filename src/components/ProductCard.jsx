@@ -1,12 +1,12 @@
 // ============================================
-// ProductCard Component — Cake Menu
+// ProductCard Component — Cake Menu (Catalogue View)
 // ============================================
 import { useState } from 'react';
-import { Star, Clock, ShoppingBag, Eye } from 'lucide-react';
+import { Clock, Eye } from 'lucide-react';
 import { formatPrice } from '../utils/helpers';
 import './ProductCard.css';
 
-export default function ProductCard({ product, onQuickView, onAddToCart }) {
+export default function ProductCard({ product, onQuickView }) {
   const [imageLoaded, setImageLoaded] = useState(false);
   const [imageError, setImageError] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
@@ -19,8 +19,6 @@ export default function ProductCard({ product, onQuickView, onAddToCart }) {
     tags = [],
     isCustomizable = false,
     leadTimeHours = 48,
-    rating = 5.0,
-    reviews = 1,
     available = true,
     category = 'cakes',
   } = product || {};
@@ -64,7 +62,6 @@ export default function ProductCard({ product, onQuickView, onAddToCart }) {
 
         {/* Badges */}
         <div className="product-card__badges">
-
           {(tags || []).includes('bestseller') && (
             <span className="badge badge--bestseller">⭐ Bestseller</span>
           )}
@@ -76,7 +73,7 @@ export default function ProductCard({ product, onQuickView, onAddToCart }) {
           )}
         </div>
 
-        {/* Hover Overlay */}
+        {/* Hover Overlay — Quick View */}
         <div className={`product-card__overlay ${isHovered ? 'visible' : ''}`}>
           <button
             className="btn btn--secondary btn--sm"
@@ -98,7 +95,6 @@ export default function ProductCard({ product, onQuickView, onAddToCart }) {
       {/* Content */}
       <div className="product-card__body">
         <div className="product-card__meta">
-
           <div className="product-card__lead-time">
             <Clock size={12} />
             <span>{leadTimeHours}h notice</span>
@@ -118,16 +114,15 @@ export default function ProductCard({ product, onQuickView, onAddToCart }) {
             </span>
           </div>
 
-          {available && (
-            <button
-              className="product-card__add-btn btn btn--primary btn--sm"
-              onClick={() => onQuickView(product)}
-              id={`add-btn-${product.id}`}
-            >
-              <ShoppingBag size={14} />
-              Order
-            </button>
-          )}
+          {/* View Details button (replaces Order button) */}
+          <button
+            className="product-card__add-btn btn btn--primary btn--sm"
+            onClick={() => onQuickView(product)}
+            id={`view-btn-${product.id}`}
+          >
+            <Eye size={14} />
+            View Details
+          </button>
         </div>
       </div>
     </article>

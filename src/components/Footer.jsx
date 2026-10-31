@@ -1,14 +1,16 @@
 // ============================================
-// Footer Component
+// Footer Component — Cake Menu Catalogue
 // ============================================
-import { MapPin, Phone, Clock, Heart } from 'lucide-react';
-import { SHOP_NAME, FSSAI_NUMBER, SHOP_LOCATION } from '../data/products';
+import { Link } from 'react-router-dom';
+import { MapPin, Phone, Clock, Heart, Lock } from 'lucide-react';
+import { SHOP_NAME, SHOP_LOCATION } from '../data/products';
 import { useStore } from '../store/StoreContext';
 import { InstagramIcon, WhatsAppIcon } from './icons/SocialIcons';
 import './Footer.css';
 
 export default function Footer() {
-  const { isAdmin, isLoggedIn } = useStore();
+  const { isAdmin } = useStore();
+
   return (
     <footer className="footer" id="footer">
       <div className="container">
@@ -30,17 +32,10 @@ export default function Footer() {
 
           {/* Quick Links */}
           <div className="footer__col">
-            <h4 className="footer__col-title">Quick Links</h4>
-            <a href="#menu" className="footer__link">Our Menu</a>
-            <a href="#about" className="footer__link">About Us</a>
-            <a href="#testimonials" className="footer__link">Reviews</a>
-            <a href="/cart" className="footer__link">Cart & Checkout</a>
-            {!isAdmin && isLoggedIn ? (
-              <a href="/track" className="footer__link">📍 Track Your Order</a>
-            ) : isAdmin ? (
-              <a href="/admin" className="footer__link" style={{ opacity: 0.9 }}>👑 Admin Dashboard</a>
-            ) : null}
-
+            <h4 className="footer__col-title">Catalogue</h4>
+            <a href="/#menu" className="footer__link">Menu</a>
+            <a href="/#testimonials" className="footer__link">Testimonials</a>
+            <a href="/#about" className="footer__link">About Us</a>
           </div>
 
           {/* Contact */}
@@ -56,7 +51,7 @@ export default function Footer() {
             </div>
             <div className="footer__contact-item">
               <Clock size={14} />
-              <span>Orders: 9 AM – 8 PM</span>
+              <span>Open: 9 AM – 8 PM</span>
             </div>
             <div className="footer__socials">
               <a
@@ -70,7 +65,7 @@ export default function Footer() {
                 <InstagramIcon size={20} />
               </a>
               <a
-                href="https://wa.me/918431441492"
+                href="https://wa.me/918431441492?text=Hi%20Priyanka!%20I%20saw%20your%20bakery%20catalogue%20and%20would%20love%20to%20enquire%20about%20your%20cakes."
                 target="_blank"
                 rel="noopener noreferrer"
                 className="footer__social-btn footer__social-btn--wa"
@@ -91,6 +86,18 @@ export default function Footer() {
           <p className="footer__allergen-note">
             ⚠️ Our products may contain dairy, nuts, and gluten. Please check individual product allergen information.
           </p>
+          {/* Discreet admin portal link */}
+          <div className="footer__admin-discreet">
+            {isAdmin ? (
+              <Link to="/admin" className="footer__admin-link" title="Open Admin CMS">
+                <Lock size={11} /> <span>Admin Dashboard</span>
+              </Link>
+            ) : (
+              <Link to="/admin/login" className="footer__admin-link" title="Bakery Administrator Login">
+                <Lock size={11} /> <span>Baker Portal</span>
+              </Link>
+            )}
+          </div>
         </div>
       </div>
     </footer>

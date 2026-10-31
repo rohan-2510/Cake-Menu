@@ -1,8 +1,9 @@
 // ============================================
-// Home Page — Cake Menu Storefront
+// Home Page — Cake Menu Catalogue
 // ============================================
-import { useState } from 'react';
-import { Shield, Leaf, Award, ChefHat, Sparkles } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
+import { Leaf, ChefHat, Sparkles } from 'lucide-react';
 import Hero from '../components/Hero';
 import ProductCard from '../components/ProductCard';
 import ProductModal from '../components/ProductModal';
@@ -14,8 +15,30 @@ import './HomePage.css';
 
 export default function HomePage() {
   const { getProducts } = useStore();
-  const [activeCategory, setActiveCategory] = useState('all');
+  const [selectedCategory, setSelectedCategory] = useState(null);
   const [selectedProduct, setSelectedProduct] = useState(null);
+  const location = useLocation();
+
+  // Derive active category from user selection or URL hash
+  const hashCategory = (location.hash || '').replace('#', '').toLowerCase();
+  const activeCategory = selectedCategory ?? (['cakes', 'cupcakes', 'brownies', 'seasonal'].includes(hashCategory) ? hashCategory : 'all');
+
+  // Smooth scroll to relevant section when hash changes
+  useEffect(() => {
+    const rawHash = (location.hash || '').replace('#', '').toLowerCase();
+    if (['cakes', 'cupcakes', 'brownies', 'seasonal', 'menu'].includes(rawHash)) {
+      const el = document.getElementById('menu');
+      if (el) {
+        setTimeout(() => el.scrollIntoView({ behavior: 'smooth' }), 50);
+      }
+    } else if (rawHash === 'about') {
+      const el = document.getElementById('about');
+      if (el) setTimeout(() => el.scrollIntoView({ behavior: 'smooth' }), 50);
+    } else if (rawHash === 'testimonials') {
+      const el = document.getElementById('testimonials');
+      if (el) setTimeout(() => el.scrollIntoView({ behavior: 'smooth' }), 50);
+    }
+  }, [location.hash]);
 
   const products = getProducts(activeCategory);
   const availableProducts = products.filter((p) => p.available !== false);
@@ -48,12 +71,12 @@ export default function HomePage() {
         </section>
       )}
 
-      {/* Full Menu */}
+      {/* Full Menu / Product Catalogue */}
       <section className="section menu" id="menu">
         <div className="container">
           <div className="section-header">
             <span className="accent-line font-accent">explore our treats</span>
-            <h2 className="font-display">Our Menu</h2>
+            <h2 className="font-display">Our Catalogue</h2>
             <p>Available in both Eggless &amp; With-Egg options, freshly baked with premium ingredients</p>
           </div>
 
@@ -63,7 +86,10 @@ export default function HomePage() {
               <button
                 key={cat.id}
                 className={`menu__tab ${activeCategory === cat.id ? 'active' : ''}`}
-                onClick={() => setActiveCategory(cat.id)}
+                onClick={() => {
+                  setSelectedCategory(cat.id);
+                  window.history.replaceState(null, '', cat.id === 'all' ? '/#menu' : `/#${cat.id}`);
+                }}
                 id={`tab-${cat.id}`}
               >
                 <span className="menu__tab-icon">{cat.icon}</span>
@@ -135,12 +161,12 @@ export default function HomePage() {
               <div className="about__value-card">
                 <ChefHat size={24} />
                 <h4>Freshly Baked</h4>
-                <p>Made to order, never pre-made or frozen</p>
+                <p>Made fresh to order, never pre-made or frozen</p>
               </div>
               <div className="about__value-card">
                 <Sparkles size={24} />
                 <h4>Premium Ingredients</h4>
-                <p>Quality butter, cream, and Belgian cocoa</p>
+                <p>Quality butter, fresh cream, and Belgian cocoa</p>
               </div>
             </div>
           </div>
@@ -177,13 +203,13 @@ export default function HomePage() {
 
       {/* Floating WhatsApp Button */}
       <a
-        href="https://wa.me/918431441492?text=Hi%20Priyanka!%20I%27d%20like%20to%20order%20a%20cake."
+        href="https://wa.me/918431441492?text=Hi%20Priyanka!%20I%20saw%20your%20bakery%20catalogue%20and%20would%20love%20to%20enquire%20about%20your%20cakes."
         target="_blank"
         rel="noopener noreferrer"
         className="floating-wa"
         id="floating-whatsapp"
-        aria-label="Chat on WhatsApp"
-        title="Chat on WhatsApp"
+        aria-label="Chat with us on WhatsApp"
+        title="Chat with us on WhatsApp"
       >
         <WhatsAppIcon size={28} color="#FFFFFF" />
       </a>

@@ -1,7 +1,6 @@
 // ============================================
 // CAKE MENU — Utility Helpers
 // ============================================
-import { OWNER_PHONE, TIME_SLOTS } from '../data/products';
 
 /**
  * Format price in INR
@@ -49,7 +48,7 @@ export function formatDate(input) {
 }
 
 /**
- * Format date and time for placed orders (e.g. "4 Sep 2026, 01:15 PM")
+ * Format date and time (e.g. "4 Sep 2026, 01:15 PM")
  */
 export function formatDateTime(input) {
   const date = parseDateSafely(input);
@@ -66,103 +65,8 @@ export function formatDateTime(input) {
 }
 
 /**
- * Calculate earliest pickup date based on lead time hours
- */
-export function getEarliestPickup(leadTimeHours) {
-  const now = new Date();
-  const earliest = new Date(now.getTime() + leadTimeHours * 60 * 60 * 1000);
-  // If it would be past 8PM (end of last slot), push to next day
-  if (earliest.getHours() >= 20) {
-    earliest.setDate(earliest.getDate() + 1);
-    earliest.setHours(10, 0, 0, 0);
-  }
-  return earliest;
-}
-
-/**
  * Get date string in YYYY-MM-DD format
  */
 export function toDateString(date) {
   return date.toISOString().split('T')[0];
-}
-
-/**
- * Check if a time slot is still available for today
- */
-export function isSlotAvailableToday(slotId) {
-  const now = new Date();
-  const hour = now.getHours();
-  switch (slotId) {
-    case 'morning': return hour < 10;
-    case 'afternoon': return hour < 14;
-    case 'evening': return hour < 17;
-    default: return false;
-  }
-}
-
-/**
- * Generate maximum lead time from cart items
- */
-export function getMaxLeadTime(cartItems, getProduct) {
-  return cartItems.reduce((max, item) => {
-    const product = getProduct(item.productId);
-    return Math.max(max, product?.leadTimeHours || 48);
-  }, 0);
-}
-
-/**
- * Generate WhatsApp order message
- */
-export function generateWhatsAppMessage(order) {
-  const { items, customer, pickupDate, timeSlot, total } = order;
-
-  let msg = `🎂 *NEW ORDER REQUEST — Cake Menu*\n`;
-  if (order.id) msg += `*Order ID:* #${order.id}\n`;
-  msg += `*Status:* ⏳ Pending Baker Approval\n`;
-  msg += `━━━━━━━━━━━━━━━━━━━━━━\n\n`;
-
-  items.forEach((item, i) => {
-    msg += `*${i + 1}. ${item.name}*\n`;
-    msg += `   Size: ${item.sizeName}\n`;
-    if (item.flavor) msg += `   Flavor: ${item.flavor}\n`;
-    if (item.eggPreference) msg += `   Prep: ${item.eggPreference === 'Eggless' ? '🟢 Eggless' : '🥚 With Egg'}\n`;
-    if (item.customMessage) msg += `   📝 Message: "${item.customMessage}"\n`;
-    msg += `   Qty: ${item.quantity} × ${formatPrice(item.price)} = ${formatPrice(item.price * item.quantity)}\n\n`;
-  });
-
-  msg += `━━━━━━━━━━━━━━━━━━━━━━\n`;
-  msg += `*Total: ${formatPrice(total)}*\n\n`;
-
-  msg += `📅 *Pickup Date:* ${formatDate(pickupDate)}\n`;
-  const selectedSlot = TIME_SLOTS.find((slot) => slot.id === timeSlot);
-  msg += `🕐 *Time Slot:* ${selectedSlot ? `${selectedSlot.label} (${selectedSlot.time})` : timeSlot}\n\n`;
-
-  msg += `👤 *Customer:* ${customer.name}\n`;
-  msg += `📱 *Phone:* ${customer.phone}\n`;
-
-  if (customer.notes) {
-    msg += `\n📋 *Special Notes:* ${customer.notes}\n`;
-  }
-
-  msg += `\n💳 *Payment:* Pay on Pickup\n`;
-  msg += `⏳ *Note:* Waiting for Priyanka's review & approval.\n`;
-  msg += `━━━━━━━━━━━━━━━━━━━━━━\n`;
-  msg += `_Thank you for ordering from Cake Menu!_ 🧁`;
-
-  return msg;
-}
-
-/**
- * Build WhatsApp URL
- */
-export function getWhatsAppUrl(message) {
-  const encoded = encodeURIComponent(message);
-  return `https://wa.me/${OWNER_PHONE}?text=${encoded}`;
-}
-
-/**
- * Generate a unique order ID
- */
-export function generateOrderId() {
-  return `ORD-${crypto.randomUUID().replaceAll('-', '').toUpperCase()}`;
 }

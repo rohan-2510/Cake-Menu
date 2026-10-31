@@ -1,15 +1,15 @@
 // ============================================
-// Header Component — Cake Menu
+// Header Component — Cake Menu Catalogue
 // ============================================
 import { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { ShoppingBag, Menu, X, Phone, LogOut, User, ShieldCheck, KeyRound } from 'lucide-react';
+import { Menu, X, LogOut, ShieldCheck } from 'lucide-react';
 import { useStore } from '../store/StoreContext';
 import { WhatsAppIcon } from './icons/SocialIcons';
 import './Header.css';
 
-export default function Header({ onOpenAuth }) {
-  const { cartCount, isAdmin, isLoggedIn, isGuest, currentUser, dispatch, Actions, logout } = useStore();
+export default function Header() {
+  const { isAdmin, currentUser, dispatch, Actions, logout } = useStore();
   const [isScrolled, setIsScrolled] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const location = useLocation();
@@ -20,27 +20,14 @@ export default function Header({ onOpenAuth }) {
     return () => window.removeEventListener('scroll', onScroll);
   }, []);
 
-  useEffect(() => {
-    setMobileMenuOpen(false);
-  }, [location]);
-
-  // Base links visible to all users
+  // Public catalogue navigation links as specified
   const navLinks = [
-    { to: '/', label: 'Home' },
-    { to: '/#menu', label: 'Menu' },
+    { to: '/#hero', label: 'Home' },
+    { to: '/#about', label: 'About Us' },
+    { to: '/#testimonials', label: 'Testimonials' },
   ];
 
-  // Track Order is ONLY for logged-in customers (hidden for Admin and Guests)
-  if (!isAdmin && isLoggedIn) {
-    navLinks.push({ to: '/track', label: '📍 Track Order' });
-  }
-
-  navLinks.push(
-    { to: '/#about', label: 'About' },
-    { to: '/#testimonials', label: 'Reviews' }
-  );
-
-  // ONLY show Dashboard if user is authenticated Admin
+  // Show Dashboard link only if authorized admin is logged in
   if (isAdmin) {
     navLinks.push({ to: '/admin', label: '👑 Dashboard', isAdmin: true });
   }
@@ -50,11 +37,22 @@ export default function Header({ onOpenAuth }) {
     dispatch({ type: Actions.SET_TOAST, payload: '👋 Logged out successfully' });
   };
 
+  const handleNavClick = (linkTo) => {
+    setMobileMenuOpen(false);
+    if (linkTo.startsWith('/#')) {
+      const hash = linkTo.replace('/#', '');
+      const el = document.getElementById(hash === 'cakes' || hash === 'cupcakes' || hash === 'brownies' || hash === 'seasonal' ? 'menu' : hash);
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth' });
+      }
+    }
+  };
+
   return (
     <header className={`header ${isScrolled ? 'header--scrolled' : ''}`} id="site-header">
       <div className="header__inner container">
         {/* Logo */}
-        <Link to="/" className="header__logo" id="header-logo">
+        <Link to="/" className="header__logo" id="header-logo" onClick={() => setMobileMenuOpen(false)}>
           <span className="header__logo-icon">🎂</span>
           <div className="header__logo-text">
             <span className="header__brand font-display">Cake Menu</span>
@@ -71,8 +69,8 @@ export default function Header({ onOpenAuth }) {
                 <a
                   key={link.to}
                   href={link.to}
-                  className={`header__nav-link ${link.isAdmin ? 'header__nav-link--admin' : ''
-                    }`}
+                  className={`header__nav-link ${link.isAdmin ? 'header__nav-link--admin' : ''}`}
+                  onClick={() => handleNavClick(link.to)}
                 >
                   {link.label}
                 </a>
@@ -82,8 +80,7 @@ export default function Header({ onOpenAuth }) {
               <Link
                 key={link.to}
                 to={link.to}
-                className={`header__nav-link ${location.pathname === link.to ? 'active' : ''} ${link.isAdmin ? 'header__nav-link--admin' : ''
-                  }`}
+                className={`header__nav-link ${location.pathname === link.to ? 'active' : ''} ${link.isAdmin ? 'header__nav-link--admin' : ''}`}
               >
                 {link.label}
               </Link>
@@ -93,21 +90,14 @@ export default function Header({ onOpenAuth }) {
 
         {/* Actions */}
         <div className="header__actions">
-          {/* User Status / Login Pill */}
-          {isLoggedIn ? (
-            <div className="header__user-pill" title={`Logged in as ${currentUser?.name}`}>
+          {/* Admin badge + logout (only when admin is logged in) */}
+          {isAdmin && (
+            <div className="header__user-pill" title={`Logged in as ${currentUser?.name || currentUser?.email}`}>
               <div className="header__user-info">
-                {isAdmin ? (
-                  <span className="header__user-role-badge">
-                    <ShieldCheck size={13} />
-                    <span>Admin</span>
-                  </span>
-                ) : (
-                  <span className="header__user-name">
-                    <User size={14} />
-                    <span>{currentUser?.name?.split(' ')[0]}</span>
-                  </span>
-                )}
+                <span className="header__user-role-badge">
+                  <ShieldCheck size={13} />
+                  <span>Admin</span>
+                </span>
               </div>
               <button
                 type="button"
@@ -119,21 +109,11 @@ export default function Header({ onOpenAuth }) {
                 <LogOut size={15} />
               </button>
             </div>
-          ) : (
-            <button
-              type="button"
-              className="header__auth-trigger-btn"
-              onClick={onOpenAuth}
-              title="Sign In / Register"
-            >
-              <KeyRound size={15} />
-              <span className="header__auth-label">Login</span>
-            </button>
           )}
 
           {/* WhatsApp Button */}
           <a
-            href="https://wa.me/918431441492"
+            href="https://wa.me/918431441492?text=Hi%20Priyanka!%20I%20saw%20your%20bakery%20catalogue%20and%20would%20love%20to%20enquire%20about%20your%20treats."
             target="_blank"
             rel="noopener noreferrer"
             className="header__whatsapp-btn"
@@ -143,14 +123,6 @@ export default function Header({ onOpenAuth }) {
           >
             <WhatsAppIcon size={18} />
           </a>
-
-          {/* Cart Button */}
-          <Link to="/cart" className="header__cart-btn" id="header-cart">
-            <ShoppingBag size={20} />
-            {cartCount > 0 && (
-              <span className="header__cart-badge">{cartCount}</span>
-            )}
-          </Link>
 
           {/* Mobile Menu Toggle */}
           <button
@@ -169,12 +141,12 @@ export default function Header({ onOpenAuth }) {
         <>
           <div className="header__mobile-overlay" onClick={() => setMobileMenuOpen(false)} />
           <div className="header__mobile-menu" id="mobile-menu">
-            {/* User status in mobile menu */}
-            <div className="header__mobile-user-card">
-              {isLoggedIn ? (
+            {/* Admin status in mobile menu */}
+            {isAdmin && (
+              <div className="header__mobile-user-card">
                 <div className="header__mobile-user-details">
                   <div className="header__mobile-user-tag">
-                    {isAdmin ? '👑 Owner Priyanka' : `👤 ${currentUser?.name}`}
+                    👑 Owner Priyanka (Admin)
                   </div>
                   <button
                     type="button"
@@ -188,23 +160,8 @@ export default function Header({ onOpenAuth }) {
                     <span>Log Out</span>
                   </button>
                 </div>
-              ) : (
-                <div className="header__mobile-auth-prompt">
-                  <p>Browsing as Guest</p>
-                  <button
-                    type="button"
-                    className="btn btn--sm btn--primary"
-                    onClick={() => {
-                      setMobileMenuOpen(false);
-                      if (onOpenAuth) onOpenAuth();
-                    }}
-                  >
-                    <KeyRound size={14} />
-                    <span>Sign In / Register</span>
-                  </button>
-                </div>
-              )}
-            </div>
+              </div>
+            )}
 
             {navLinks.map((link) => {
               const isAnchor = link.to.startsWith('/#');
@@ -214,7 +171,7 @@ export default function Header({ onOpenAuth }) {
                     key={link.to}
                     href={link.to}
                     className={`header__mobile-link ${link.isAdmin ? 'header__mobile-link--admin' : ''}`}
-                    onClick={() => setMobileMenuOpen(false)}
+                    onClick={() => handleNavClick(link.to)}
                   >
                     {link.label}
                   </a>
@@ -224,8 +181,7 @@ export default function Header({ onOpenAuth }) {
                 <Link
                   key={link.to}
                   to={link.to}
-                  className={`header__mobile-link ${location.pathname === link.to ? 'active' : ''} ${link.isAdmin ? 'header__mobile-link--admin' : ''
-                    }`}
+                  className={`header__mobile-link ${location.pathname === link.to ? 'active' : ''} ${link.isAdmin ? 'header__mobile-link--admin' : ''}`}
                   onClick={() => setMobileMenuOpen(false)}
                 >
                   {link.label}
@@ -233,7 +189,7 @@ export default function Header({ onOpenAuth }) {
               );
             })}
             <a
-              href="https://wa.me/918431441492"
+              href="https://wa.me/918431441492?text=Hi%20Priyanka!%20I%20saw%20your%20bakery%20catalogue%20and%20would%20love%20to%20enquire%20about%20your%20treats."
               target="_blank"
               rel="noopener noreferrer"
               className="btn btn--whatsapp btn--full"
@@ -248,4 +204,3 @@ export default function Header({ onOpenAuth }) {
     </header>
   );
 }
-

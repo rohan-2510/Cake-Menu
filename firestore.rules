@@ -1,0 +1,33 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Authorized admin check
+    function isAdmin() {
+      return request.auth != null && 
+        request.auth.token.email != null && 
+        request.auth.token.email.lower() == 'admin@cakemenu.com';
+    }
+
+    // Products / Menu: public read-only, admin create/update/delete
+    match /menu/{docId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // Testimonials: public read for visible reviews, admin read/write all
+    match /testimonials/{docId} {
+      allow read: if !('visible' in resource.data) || resource.data.visible == true || isAdmin();
+      allow write: if isAdmin();
+    }
+
+    // Users collection: customer accounts removed, deny public access
+    match /users/{userId} {
+      allow read, write: if false;
+    }
+
+    // Orders: completely removed, deny all access
+    match /orders/{ordId} {
+      allow read, write: if false;
+    }
+  }
+}

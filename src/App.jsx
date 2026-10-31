@@ -1,5 +1,5 @@
-import React, { useState, Component, Suspense, lazy, useEffect } from 'react';
-import { BrowserRouter, Routes, Route, useLocation } from 'react-router-dom';
+import React, { Component, Suspense, lazy, useEffect } from 'react';
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { StoreProvider, useStore } from './store/StoreContext';
 import Header from './components/Header';
 import Footer from './components/Footer';
@@ -7,11 +7,8 @@ import HomePage from './pages/HomePage';
 import './App.css';
 
 // Code-split heavy routes for rapid initial page load & smooth navigation
-const CartPage = lazy(() => import('./pages/CartPage'));
-const CheckoutPage = lazy(() => import('./pages/CheckoutPage'));
 const AdminPage = lazy(() => import('./pages/AdminPage'));
-const AuthPage = lazy(() => import('./pages/AuthPage'));
-const TrackOrderPage = lazy(() => import('./pages/TrackOrderPage'));
+const AdminLoginPage = lazy(() => import('./pages/AdminLoginPage'));
 
 function ScrollToTop() {
   const { pathname } = useLocation();
@@ -102,54 +99,51 @@ function Toast() {
   return <div className="toast">{state.toast}</div>;
 }
 
+/** Protected route: only renders children if user isAdmin, else redirects to /admin/login */
+function AdminRoute({ children }) {
+  const { isAdmin, authReady } = useStore();
+  if (!authReady) return <PageLoadingFallback />;
+  if (!isAdmin) return <Navigate to="/admin/login" replace />;
+  return children;
+}
+
 function AppContent() {
-  const { currentUser, authReady } = useStore();
-  const [showAuthModal, setShowAuthModal] = useState(false);
   const location = useLocation();
-
-  // While Firebase is still resolving the initial auth state, show a neutral
-  // loader — this prevents the 1-frame flash to the login page on navigation.
-  if (!authReady) {
-    return <PageLoadingFallback />;
-  }
-
-  // Allow /admin to render directly without blocking (admin has its own auth)
-  const isAdminRoute = location.pathname === '/admin';
-  if (!currentUser && !isAdminRoute) {
-    return (
-      <div className="app">
-        <Suspense fallback={<PageLoadingFallback />}>
-          <AuthPage />
-        </Suspense>
-        <Toast />
-      </div>
-    );
-  }
 
   return (
     <div className="app">
       <ScrollToTop />
-      <Header onOpenAuth={() => setShowAuthModal(true)} />
+      <Header />
       <main className="main">
         <Suspense fallback={<PageLoadingFallback />}>
           <div key={location.pathname} className="route-view">
             <Routes>
+              {/* Public routes */}
               <Route path="/" element={<HomePage />} />
-              <Route path="/cart" element={<CartPage />} />
-              <Route path="/checkout" element={<CheckoutPage />} />
-              <Route path="/track" element={<TrackOrderPage />} />
-              <Route path="/track/:orderId" element={<TrackOrderPage />} />
-              <Route path="/admin" element={<AdminPage />} />
+
+              {/* Admin login (standalone, no header/footer wrapper needed but kept for consistency) */}
+              <Route
+                path="/admin/login"
+                element={<AdminLoginPage />}
+              />
+
+              {/* Protected admin route */}
+              <Route
+                path="/admin"
+                element={
+                  <AdminRoute>
+                    <AdminPage />
+                  </AdminRoute>
+                }
+              />
+
+              {/* Fallback */}
+              <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
           </div>
         </Suspense>
       </main>
       <Footer />
-      {showAuthModal && (
-        <Suspense fallback={null}>
-          <AuthPage onClose={() => setShowAuthModal(false)} isModal={true} />
-        </Suspense>
-      )}
       <Toast />
     </div>
   );

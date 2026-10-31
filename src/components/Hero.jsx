@@ -1,5 +1,5 @@
 // ============================================
-// Hero Section — Cake Menu
+// Hero Section — Cake Menu Catalogue
 // ============================================
 import { ArrowRight, Sparkles } from 'lucide-react';
 import { WhatsAppIcon } from './icons/SocialIcons';
@@ -34,11 +34,11 @@ export default function Hero() {
 
           <div className="hero__actions animate-fade-in-up" style={{ animationDelay: '0.3s' }}>
             <a href="#menu" className="btn btn--primary btn--lg" id="hero-explore-btn">
-              Explore Menu
+              Explore Catalogue
               <ArrowRight size={18} />
             </a>
             <a
-              href="https://wa.me/918431441492?text=Hi%20Priyanka!%20I'd%20like%20to%20order%20a%20cake."
+              href="https://wa.me/918431441492?text=Hi%20Priyanka!%20I%20saw%20your%20bakery%20catalogue%20and%20would%20love%20to%20enquire%20about%20your%20treats."
               target="_blank"
               rel="noopener noreferrer"
               className="btn btn--whatsapp btn--lg"
